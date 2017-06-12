@@ -1,0 +1,219 @@
+package com.huaao.ejwplatform.service.websocket;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import com.corundumstudio.socketio.AckRequest;
+import com.corundumstudio.socketio.Configuration;
+import com.corundumstudio.socketio.SocketConfig;
+import com.corundumstudio.socketio.SocketIOClient;
+import com.corundumstudio.socketio.SocketIOServer;
+import com.corundumstudio.socketio.listener.ConnectListener;
+import com.corundumstudio.socketio.listener.DataListener;
+import com.corundumstudio.socketio.listener.DisconnectListener;
+import com.huaao.ejwplatform.common.Constants;
+import com.huaao.ejwplatform.common.util.JSONUtil;
+import com.huaao.ejwplatform.service.UserService;
+
+@Service("socketIoService")
+public class SocketIoService {
+	private Logger log = LoggerFactory.getLogger(this.getClass());
+	
+	private static SocketIOServer server;
+    private static Map<String, ArrayList<SocketIOClient>> clientsMap = new HashMap<String, ArrayList<SocketIOClient>>();
+    
+    @Value("${socket.hostname}")
+	private String host;
+	
+	@Value("${socket.port}")
+	private int port;
+	
+	@Value("${socket.maxSize}")
+	private int maxSize;
+
+	@Autowired
+	private StringRedisTemplate stringRedisTemplate;
+	
+	@Autowired
+	private UserService userService;
+	
+	public static final String SOCKET_MSG_TEST = "test_msg";
+	
+	public static final String SOCKET_MSG_ALERT = "new_alert";
+	
+	public static final String SOCKET_MSG_TODO = "new_todo";
+    
+    public void startServer() throws InterruptedException{
+        Configuration config = new Configuration();
+        config.setHostname(host);
+        config.setPort(port);
+        SocketConfig sc = new SocketConfig();
+        sc.setReuseAddress(true);
+        config.setSocketConfig(sc);
+        config.setMaxFramePayloadLength(maxSize);
+        config.setMaxHttpContentLength(maxSize);
+        server = new SocketIOServer(config);
+        
+        //监听token事件
+        server.addEventListener("token", String.class, new DataListener<String>(){
+            @Override
+            public void onData(SocketIOClient client, String data, AckRequest ackRequest) throws ClassNotFoundException {
+                log.info("receive token "+data+" from client "+client.getSessionId());
+                String uid = userService.getUidByToken(data);
+        		if(!clientsMap.containsKey(uid)){
+        			clientsMap.put(uid, new ArrayList<SocketIOClient>());
+        		}
+        		clientsMap.get(uid).add(client);
+        		String uuid = client.getSessionId().toString();
+        		stringRedisTemplate.opsForValue().set(Constants.CACHE_SOCEKT_CLIENT + "_" + uuid, uid);
+        		String alertId = userService.getUnreadAlertId(uid);
+        		client.sendEvent(SOCKET_MSG_ALERT, alertId);
+            }
+        });
+        
+        server.addEventListener("logout", String.class, new DataListener<String>(){
+            @Override
+            public void onData(SocketIOClient client, String data, AckRequest ackRequest) throws ClassNotFoundException {
+                log.info("receive logout token "+data+" from client "+client.getSessionId());
+                removeClient(client);
+            }
+        });
+        
+        
+        //监听待办事宜事件
+        server.addEventListener("newToDo", String.class, new DataListener<String>(){
+            @Override
+            public void onData(SocketIOClient client, String data, AckRequest ackRequest) throws ClassNotFoundException {
+                log.info("receive token "+data+" from client "+client.getSessionId());
+                String uid = userService.getUidByToken(data);
+        		if(!clientsMap.containsKey(uid)){
+        			clientsMap.put(uid, new ArrayList<SocketIOClient>());
+        		}
+        		clientsMap.get(uid).add(client);
+        		client.sendEvent(SOCKET_MSG_TODO);
+            }
+        });
+        
+        /**
+        //监听通知事件
+        server.addEventListener("notice_info", String.class, new DataListener<String>() {
+            @Override    
+            public void onData(SocketIOClient client, String data, AckRequest ackRequest) {
+                //同上
+            }
+        });
+        */
+        
+        //添加客户端连接事件
+        server.addConnectListener(new ConnectListener() {
+            @Override
+            public void onConnect(SocketIOClient client) {
+            	log.info("new socket clilent sid " +client.getSessionId().toString() );
+            	client.sendEvent(SOCKET_MSG_TEST, "new client connected");
+            }
+        });
+        //添加客户端断开连接事件
+        server.addDisconnectListener(new DisconnectListener(){
+            @Override
+            public void onDisconnect(SocketIOClient client) {
+            	removeClient(client);
+            }
+        });
+        
+        server.start();
+    }
+    
+    public void removeClient(SocketIOClient client){
+    	String uuid = client.getSessionId().toString();
+    	String uid = stringRedisTemplate.opsForValue().get(Constants.CACHE_SOCEKT_CLIENT + "_" + uuid);
+    	log.info("socket client disconnect uid "+uid);
+    	ArrayList<SocketIOClient> clients = clientsMap.get(uid);
+    	if(clients != null && clients.size() > 0){
+    		Iterator<SocketIOClient> it = clients.iterator();  
+        	while(it.hasNext()){  
+        		SocketIOClient cl = it.next();  
+        	    if(cl.getSessionId().toString().equals(uuid)){  
+        	        it.remove();  
+        	    }  
+        	} 
+    	}
+    }
+    
+    public void stopServer(){
+        if(server != null){
+            server.stop();
+            server = null;
+        }
+    }
+    /**
+     *  给所有连接客户端推送消息
+     * @param eventType 推送的事件类型
+     * @param message  推送的内容
+     */
+    public void sendMessageToAllClient(String eventType,String message){
+        Collection<SocketIOClient> clients = server.getAllClients();
+        for(SocketIOClient client: clients){
+            client.sendEvent(eventType, message);
+        }
+    }
+    
+    
+    /**
+     * 给指定用户推送消息
+     * @param uid 用户ID
+     * @param eventType推送事件类型
+     * @param message 推送的消息内容
+     */
+    public void sendMessageToUser(String uid, String eventType, String message){
+        try {
+            if(!StringUtils.isEmpty(uid)){
+            	if(clientsMap.get(uid) != null){
+            		for(SocketIOClient client: clientsMap.get(uid)){
+                    	if(client != null){
+                            client.sendEvent(eventType, message);
+                        }
+                    }
+            	}
+            }
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    public static SocketIOServer getServer() {
+        return server;
+    }
+
+	public void sendAlertMsg(List<String> userIds, String id) {
+         for(String uid: userIds){
+        	 sendMessageToUser(uid, SOCKET_MSG_ALERT, id);
+         }
+	}
+	
+	
+	  /**
+     * 给指定用户推送待办事宜统计
+     * @param uid 用户ID
+     * @param eventType推送事件类型
+     * @param message 推送的消息内容
+     */
+	public void sendToDoCount(String uid, String message) {
+		sendMessageToUser(uid, SOCKET_MSG_TODO, message);
+	}
+    
+}

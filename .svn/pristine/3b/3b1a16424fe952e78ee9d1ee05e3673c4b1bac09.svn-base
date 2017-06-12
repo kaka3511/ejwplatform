@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.huaao.ejwplatform.mapper.TRoleMenudeptMapper" >
+  <resultMap id="BaseResultMap" type="com.huaao.ejwplatform.dao.TRoleMenudeptKey" >
+    <id column="t_role_id" property="tRoleId" jdbcType="VARCHAR" />
+    <id column="t_menuDept_id" property="tMenudeptId" jdbcType="VARCHAR" />
+  </resultMap>
+  <sql id="Example_Where_Clause" >
+    <where >
+      <foreach collection="oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Update_By_Example_Where_Clause" >
+    <where >
+      <foreach collection="example.oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Base_Column_List" >
+    t_role_id, t_menuDept_id
+  </sql>
+  <select id="selectByExample" resultMap="BaseResultMap" parameterType="com.huaao.ejwplatform.dao.TRoleMenudeptExample" >
+    select
+    <if test="distinct" >
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    from t_role_menudept
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null" >
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null" >
+      <if test="offset != null" >
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null" >
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.TRoleMenudeptKey" >
+    delete from t_role_menudept
+    where t_role_id = #{tRoleId,jdbcType=VARCHAR}
+      and t_menuDept_id = #{tMenudeptId,jdbcType=VARCHAR}
+  </delete>
+  <delete id="deleteByExample" parameterType="com.huaao.ejwplatform.dao.TRoleMenudeptExample" >
+    delete from t_role_menudept
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </delete>
+  <insert id="insert" parameterType="com.huaao.ejwplatform.dao.TRoleMenudeptKey" >
+    insert into t_role_menudept (t_role_id, t_menuDept_id)
+    values (#{tRoleId,jdbcType=VARCHAR}, #{tMenudeptId,jdbcType=VARCHAR})
+  </insert>
+  <insert id="insertSelective" parameterType="com.huaao.ejwplatform.dao.TRoleMenudeptKey" >
+    insert into t_role_menudept
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="tRoleId != null" >
+        t_role_id,
+      </if>
+      <if test="tMenudeptId != null" >
+        t_menuDept_id,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="tRoleId != null" >
+        #{tRoleId,jdbcType=VARCHAR},
+      </if>
+      <if test="tMenudeptId != null" >
+        #{tMenudeptId,jdbcType=VARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <select id="countByExample" parameterType="com.huaao.ejwplatform.dao.TRoleMenudeptExample" resultType="java.lang.Integer" >
+    select count(*) from t_role_menudept
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </select>
+  <update id="updateByExampleSelective" parameterType="map" >
+    update t_role_menudept
+    <set >
+      <if test="record.tRoleId != null" >
+        t_role_id = #{record.tRoleId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tMenudeptId != null" >
+        t_menuDept_id = #{record.tMenudeptId,jdbcType=VARCHAR},
+      </if>
+    </set>
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExample" parameterType="map" >
+    update t_role_menudept
+    set t_role_id = #{record.tRoleId,jdbcType=VARCHAR},
+      t_menuDept_id = #{record.tMenudeptId,jdbcType=VARCHAR}
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+</mapper>

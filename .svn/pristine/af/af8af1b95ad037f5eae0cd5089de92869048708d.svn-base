@@ -1,0 +1,65 @@
+package com.huaao.ejwplatform.api.control;
+
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.security.SignatureException;
+import java.util.Date;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponse;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponseObj;
+import com.huaao.ejwplatform.api.dto.weather.DtoWeatherQueryRequest;
+import com.huaao.ejwplatform.common.seniverse.SeniverseApi;
+import com.huaao.ejwplatform.common.web.SystemException;
+import com.huaao.ejwplatform.service.DemoService;
+
+import net.sf.json.JSONObject;
+
+@Controller 
+@RequestMapping(value = { "/api/weather" })
+public class WeatherController  {
+	
+	/**
+	 * @param dto
+	 * @return json
+	 * @throws Exception
+	 */
+	@RequestMapping("/queryByCity.do")
+    @ResponseBody
+    public DtoPublicResponseObj<JSONObject> queryWeather(@Valid DtoWeatherQueryRequest dto) throws Exception{
+		DtoPublicResponseObj<JSONObject> response = new DtoPublicResponseObj<>();
+		String city = dto.getCityName();
+		//默认查当天
+		String nowWeatherURL = SeniverseApi.generateGetNowWeatherURL(
+				city,
+                "zh-Hans",
+                "c",
+                SeniverseApi.getTIANQI_NOW_WEATHER_URL(),
+                SeniverseApi.getTIANQI_API_SECRET_KEY(),
+                SeniverseApi.getTIANQI_API_USER_ID());
+		String result = SeniverseApi.getWeatherInfo(nowWeatherURL);	
+		if(result.length() == 0)
+			throw SystemException.init("请输入正确的城市拼音！");
+		else
+			response.setData(JSONObject.fromObject(result));
+		return response;
+	}
+	
+	
+	
+}

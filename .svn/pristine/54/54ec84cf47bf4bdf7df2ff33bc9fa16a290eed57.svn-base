@@ -1,0 +1,794 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huaao.ejwplatform.mapper.JwContentMapper">
+  <resultMap id="BaseResultMap" type="com.huaao.ejwplatform.dao.JwContent">
+    <id column="id" jdbcType="VARCHAR" property="id" />
+    <result column="title" jdbcType="VARCHAR" property="title" />
+    <result column="summary" jdbcType="VARCHAR" property="summary" />
+    <result column="summary_img" jdbcType="VARCHAR" property="summaryImg" />
+    <result column="status" jdbcType="TINYINT" property="status" />
+    <result column="readnum" jdbcType="INTEGER" property="readnum" />
+    <result column="likenum" jdbcType="INTEGER" property="likenum" />
+    <result column="subject_id" jdbcType="VARCHAR" property="subjectId" />
+    <result column="type" jdbcType="TINYINT" property="type" />
+    <result column="create_id" jdbcType="VARCHAR" property="createId" />
+    <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
+    <result column="updater_id" jdbcType="VARCHAR" property="updaterId" />
+    <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
+  </resultMap>
+  <resultMap extends="BaseResultMap" id="ResultMapWithBLOBs" type="com.huaao.ejwplatform.dao.JwContent">
+    <result column="content" jdbcType="LONGVARCHAR" property="content" />
+  </resultMap>
+  <sql id="Example_Where_Clause">
+    <where>
+      <foreach collection="oredCriteria" item="criteria" separator="or">
+        <if test="criteria.valid">
+          <trim prefix="(" prefixOverrides="and" suffix=")">
+            <foreach collection="criteria.criteria" item="criterion">
+              <choose>
+                <when test="criterion.noValue">
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue">
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue">
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue">
+                  and ${criterion.condition}
+                  <foreach close=")" collection="criterion.value" item="listItem" open="(" separator=",">
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  
+  <sql id="Update_By_Example_Where_Clause">
+    <where>
+      <foreach collection="example.oredCriteria" item="criteria" separator="or">
+        <if test="criteria.valid">
+          <trim prefix="(" prefixOverrides="and" suffix=")">
+            <foreach collection="criteria.criteria" item="criterion">
+              <choose>
+                <when test="criterion.noValue">
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue">
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue">
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue">
+                  and ${criterion.condition}
+                  <foreach close=")" collection="criterion.value" item="listItem" open="(" separator=",">
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Base_Column_List">
+    id, title, summary, summary_img, content, status, readnum, likenum, subject_id, type, create_id, 
+    create_time, updater_id, update_time, uptop_time, uptop_days
+  </sql>
+  <sql id="Blob_Column_List">
+    content
+  </sql>
+  <sql id="content_column_list">
+      distinct
+    a.id, a.title, a.summary, a.summary_img, a.content, a.status, a.readnum, 
+    a.likenum, a.subject_id, a.create_id, a.create_time, a.updater_id, a.update_time,
+    (select realname from sys_user b where b.id=a.updater_id ) as updater_name,
+    (select realname from sys_user b where b.id=a.create_id ) as create_name,
+    (case when a.status=1 then '待发布'  
+    when a.status=2 then '未审批'  
+    when a.status=3 then '已发布'  
+    when a.status=4 then '已撤销' 
+    else '未知' end) as status_name,a.type,a.uptop_time,a.uptop_days,a.uptop_id,
+    (select realname from sys_user b where b.id=a.uptop_id ) as uptop_name,
+    (select distinct d.name from sys_dept d,sys_user u where d.id=u.dept_id and u.id=a.updater_id) as updater_dept_name,
+    a.msg_status,a.code
+  </sql>
+  <select id="selectByExampleWithBLOBs" parameterType="com.huaao.ejwplatform.dao.JwContentExample" resultMap="ResultMapWithBLOBs">
+    select
+    <if test="distinct">
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    ,
+    <include refid="Blob_Column_List" />
+    from jw_content
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+  </select>
+  <select id="selectByExample" parameterType="com.huaao.ejwplatform.dao.JwContentExample" resultMap="BaseMultiResultMap">
+    select
+    <if test="distinct">
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    from jw_content
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null">
+      <if test="offset != null">
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null">
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="ResultMapWithBLOBs">
+    select 
+    <include refid="Base_Column_List" />
+    ,
+    <include refid="Blob_Column_List" />
+    from jw_content
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    delete from jw_content
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <delete id="deleteByExample" parameterType="com.huaao.ejwplatform.dao.JwContentExample">
+    delete from jw_content
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+  </delete>
+  <insert id="insert" parameterType="com.huaao.ejwplatform.dao.JwContent">
+    insert into jw_content (id, title, summary, 
+      summary_img, status, readnum, 
+      likenum, subject_id, type, 
+      create_id, create_time, updater_id, 
+      update_time, uptop_time, uptop_days, 
+      content,msg_status)
+    values (#{id,jdbcType=VARCHAR}, #{title,jdbcType=VARCHAR}, #{summary,jdbcType=VARCHAR}, 
+      #{summaryImg,jdbcType=VARCHAR}, #{status,jdbcType=TINYINT}, #{readnum,jdbcType=INTEGER}, 
+      #{likenum,jdbcType=INTEGER}, #{subjectId,jdbcType=VARCHAR}, #{type,jdbcType=TINYINT}, 
+      #{createId,jdbcType=VARCHAR}, #{createTime,jdbcType=TIMESTAMP}, #{updaterId,jdbcType=VARCHAR}, 
+      #{updateTime,jdbcType=TIMESTAMP}, #{uptopTime,jdbcType=TIMESTAMP}, #{uptopDays,jdbcType=INTEGER}, 
+      #{content,jdbcType=LONGVARCHAR}, #{msgStatus,jdbcType=INTEGER})
+  </insert>
+  <insert id="insertSelective" parameterType="com.huaao.ejwplatform.dao.JwContent">
+    insert into jw_content
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        id,
+      </if>
+      <if test="title != null">
+        title,
+      </if>
+      <if test="summary != null">
+        summary,
+      </if>
+      <if test="summaryImg != null">
+        summary_img,
+      </if>
+      <if test="status != null">
+        status,
+      </if>
+      <if test="readnum != null">
+        readnum,
+      </if>
+      <if test="likenum != null">
+        likenum,
+      </if>
+      <if test="subjectId != null">
+        subject_id,
+      </if>
+      <if test="type != null">
+        type,
+      </if>
+      <if test="createId != null">
+        create_id,
+      </if>
+      <if test="createTime != null">
+        create_time,
+      </if>
+      <if test="updaterId != null">
+        updater_id,
+      </if>
+      <if test="updateTime != null">
+        update_time,
+      </if>
+      <if test="uptopTime != null">
+        uptop_time,
+      </if>
+      <if test="uptopDays != null">
+        uptop_days,
+      </if>
+      <if test="content != null">
+        content,
+      </if>
+      <if test="msgStatus != null">
+        msg_status,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="title != null">
+        #{title,jdbcType=VARCHAR},
+      </if>
+      <if test="summary != null">
+        #{summary,jdbcType=VARCHAR},
+      </if>
+      <if test="summaryImg != null">
+        #{summaryImg,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=TINYINT},
+      </if>
+      <if test="readnum != null">
+        #{readnum,jdbcType=INTEGER},
+      </if>
+      <if test="likenum != null">
+        #{likenum,jdbcType=INTEGER},
+      </if>
+      <if test="subjectId != null">
+        #{subjectId,jdbcType=VARCHAR},
+      </if>
+      <if test="type != null">
+        #{type,jdbcType=TINYINT},
+      </if>
+      <if test="createId != null">
+        #{createId,jdbcType=VARCHAR},
+      </if>
+      <if test="createTime != null">
+        #{createTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="updaterId != null">
+        #{updaterId,jdbcType=VARCHAR},
+      </if>
+      <if test="updateTime != null">
+        #{updateTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uptopTime != null">
+        #{uptopTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uptopDays != null">
+        #{uptopDays,jdbcType=INTEGER},
+      </if>
+      <if test="content != null">
+        #{content,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="msgStatus != null">
+        #{msg_status,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <select id="countByExample" parameterType="com.huaao.ejwplatform.dao.JwContentExample" resultType="java.lang.Integer">
+    select count(*) from jw_content
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+  </select>
+  <resultMap extends="ResultMapWithBLOBs" id="BaseMultiResultMap" type="com.huaao.ejwplatform.dao.JwContent">
+  	<result column="create_name" jdbcType="VARCHAR" property="createName" />
+  	<result column="updater_name" jdbcType="VARCHAR" property="updaterName" />
+  	<result column="status_name" jdbcType="VARCHAR" property="statusName" />
+    <result column="uptop_time" jdbcType="TIMESTAMP" property="uptopTime" />
+    <result column="msg_status" jdbcType="INTEGER" property="msgStatus" />
+    <result column="uptop_days" jdbcType="INTEGER" property="uptopDays" />
+    <result column="uptop_id" jdbcType="VARCHAR" property="uptopId" />
+    <result column="uptop_name" jdbcType="VARCHAR" property="uptopName" />
+    <result column="updater_dept_name" jdbcType="VARCHAR" property="updaterDeptName" />
+    <result column="uptop_endtime" jdbcType="TIMESTAMP" property="uptopEndtime" />
+  </resultMap>
+  <sql id="Example_multi_Where_Clause">
+    <where>
+      <foreach collection="oredCriteria" item="criteria" separator="or">
+        <if test="criteria.valid">
+          <trim prefix="(" prefixOverrides="and" suffix=")">
+            <foreach collection="criteria.criteria" item="criterion">
+              <choose>
+                <when test="criterion.noValue">
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue">
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue">
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue">
+                  and ${criterion.condition}
+                  <foreach close=")" collection="criterion.value" item="listItem" open="(" separator=",">
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <select id="countMultiByExample" parameterType="com.huaao.ejwplatform.dao.JwContentExampleExt" resultType="java.lang.Integer">
+    select count(*) 
+    from jw_content a  where 1=1 
+     <if test="keyword != null">
+     	and a.title like CONCAT('%',#{keyword},'%')
+    </if>
+     <if test="sysSubjectId != null">
+     	and a.subject_id = #{sysSubjectId}
+    </if>
+    
+     <if test="status == 6">
+     	and (a.status=2 or a.status=1 or a.status=4)
+    </if>
+    <if test="status != null and status != 0 and status != 6">
+     	and a.status = #{status}
+    </if>
+    <if test="type != null">
+     	and a.type =  ${type}
+    </if>
+  </select>
+  <select id="countMultiByExampleExt" parameterType="com.huaao.ejwplatform.dao.JwContentExampleExt" resultType="java.lang.Integer">
+    select count(distinct a.id) 
+    from jw_content a ,  jw_content_dept b  
+ , sys_dept c  where  a.id=b.content_id  and b.dept_id=c.id 
+    <if test="deptCodes == null and deptCode != null">
+     	and c.code like #{deptCode}"%"
+    </if>
+    <if test="deptCodes != null">
+    	and c.code in
+     	<foreach close=")" collection="deptCodes" index="index" item="deptCode" open="(" separator=",">
+            #{deptCode}
+        </foreach>
+    </if>
+    <if test="subjectIds != null">
+    	and a.subject_id in
+     	<foreach close=")" collection="subjectIds" index="index" item="subjectId" open="(" separator=",">
+            #{subjectId}
+        </foreach>
+    </if>
+     <if test="keyword != null">
+     	and a.title like CONCAT('%',#{keyword},'%')
+    </if>
+     <if test="sysSubjectId != null">
+     	and a.subject_id = #{sysSubjectId}
+    </if>
+  
+     <if test="status == 6">
+     	and (a.status=2 or a.status=1 or a.status=4)
+    </if>
+    <if test="status != null and status != 0  and status != 6">
+     	and a.status = #{status}
+    </if>
+    <if test="type != null">
+     	and a.type =  ${type}
+    </if>
+  </select>
+  <update id="updateByExampleSelective" parameterType="map">
+    update jw_content
+    <set>
+      <if test="record.id != null">
+        id = #{record.id,jdbcType=VARCHAR},
+      </if>
+      <if test="record.title != null">
+        title = #{record.title,jdbcType=VARCHAR},
+      </if>
+      <if test="record.summary != null">
+        summary = #{record.summary,jdbcType=VARCHAR},
+      </if>
+      <if test="record.summaryImg != null">
+        summary_img = #{record.summaryImg,jdbcType=VARCHAR},
+      </if>
+      <if test="record.status != null">
+        status = #{record.status,jdbcType=TINYINT},
+      </if>
+      <if test="record.readnum != null">
+        readnum = #{record.readnum,jdbcType=INTEGER},
+      </if>
+      <if test="record.likenum != null">
+        likenum = #{record.likenum,jdbcType=INTEGER},
+      </if>
+      <if test="record.subjectId != null">
+        subject_id = #{record.subjectId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.type != null">
+        type = #{record.type,jdbcType=TINYINT},
+      </if>
+      <if test="record.createId != null">
+        create_id = #{record.createId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.createTime != null">
+        create_time = #{record.createTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="record.updaterId != null">
+        updater_id = #{record.updaterId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.updateTime != null">
+        update_time = #{record.updateTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="record.uptopTime != null">
+        uptop_time = #{record.uptopTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="record.uptopDays != null">
+        uptop_days = #{record.uptopDays,jdbcType=INTEGER},
+      </if>
+      <if test="record.content != null">
+        content = #{record.content,jdbcType=LONGVARCHAR},
+      </if>
+    </set>
+    <if test="_parameter != null">
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExampleWithBLOBs" parameterType="map">
+    update jw_content
+    set id = #{record.id,jdbcType=VARCHAR},
+      title = #{record.title,jdbcType=VARCHAR},
+      summary = #{record.summary,jdbcType=VARCHAR},
+      summary_img = #{record.summaryImg,jdbcType=VARCHAR},
+      status = #{record.status,jdbcType=TINYINT},
+      readnum = #{record.readnum,jdbcType=INTEGER},
+      likenum = #{record.likenum,jdbcType=INTEGER},
+      subject_id = #{record.subjectId,jdbcType=VARCHAR},
+      type = #{record.type,jdbcType=TINYINT},
+      create_id = #{record.createId,jdbcType=VARCHAR},
+      create_time = #{record.createTime,jdbcType=TIMESTAMP},
+      updater_id = #{record.updaterId,jdbcType=VARCHAR},
+      update_time = #{record.updateTime,jdbcType=TIMESTAMP},
+      uptop_time = #{record.uptopTime,jdbcType=TIMESTAMP},
+      uptop_days = #{record.uptopDays,jdbcType=INTEGER},
+      content = #{record.content,jdbcType=LONGVARCHAR}
+    <if test="_parameter != null">
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExample" parameterType="map">
+    update jw_content
+    set id = #{record.id,jdbcType=VARCHAR},
+      title = #{record.title,jdbcType=VARCHAR},
+      summary = #{record.summary,jdbcType=VARCHAR},
+      summary_img = #{record.summaryImg,jdbcType=VARCHAR},
+      content = #{record.content,jdbcType=LONGVARCHAR}
+      status = #{record.status,jdbcType=TINYINT},
+      readnum = #{record.readnum,jdbcType=INTEGER},
+      likenum = #{record.likenum,jdbcType=INTEGER},
+      subject_id = #{record.subjectId,jdbcType=VARCHAR},
+      type = #{record.type,jdbcType=TINYINT},
+      create_id = #{record.createId,jdbcType=VARCHAR},
+      create_time = #{record.createTime,jdbcType=TIMESTAMP},
+      updater_id = #{record.updaterId,jdbcType=VARCHAR},
+      update_time = #{record.updateTime,jdbcType=TIMESTAMP},
+      uptop_time = #{record.uptopTime,jdbcType=TIMESTAMP},
+      uptop_days = #{record.uptopDays,jdbcType=INTEGER}
+    <if test="_parameter != null">
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByPrimaryKeySelective" parameterType="com.huaao.ejwplatform.dao.JwContent">
+    update jw_content
+    <set>
+      <if test="title != null">
+        title = #{title,jdbcType=VARCHAR},
+      </if>
+      <if test="summary != null">
+        summary = #{summary,jdbcType=VARCHAR},
+      </if>
+      <if test="summaryImg != null">
+        summary_img = #{summaryImg,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        status = #{status,jdbcType=TINYINT},
+      </if>
+      <if test="readnum != null">
+        readnum = #{readnum,jdbcType=INTEGER},
+      </if>
+      <if test="likenum != null">
+        likenum = #{likenum,jdbcType=INTEGER},
+      </if>
+      <if test="subjectId != null">
+        subject_id = #{subjectId,jdbcType=VARCHAR},
+      </if>
+      <if test="type != null">
+        type = #{type,jdbcType=TINYINT},
+      </if>
+      <if test="createId != null">
+        create_id = #{createId,jdbcType=VARCHAR},
+      </if>
+      <if test="createTime != null">
+        create_time = #{createTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="updaterId != null">
+        updater_id = #{updaterId,jdbcType=VARCHAR},
+      </if>
+      <if test="updateTime != null">
+        update_time = #{updateTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uptopTime != null">
+        uptop_time = #{uptopTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uptopDays != null">
+        uptop_days = #{uptopDays,jdbcType=INTEGER},
+      </if>
+      <if test="uptopId != null">
+        uptop_id = #{uptopId,jdbcType=VARCHAR},
+      </if>
+      <if test="content != null">
+        content = #{content,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="uptopEndtime != null">
+        uptop_endtime = #{uptopEndtime,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKeyWithBLOBs" parameterType="com.huaao.ejwplatform.dao.JwContent">
+    update jw_content
+    set title = #{title,jdbcType=VARCHAR},
+      summary = #{summary,jdbcType=VARCHAR},
+      summary_img = #{summaryImg,jdbcType=VARCHAR},
+      status = #{status,jdbcType=TINYINT},
+      readnum = #{readnum,jdbcType=INTEGER},
+      likenum = #{likenum,jdbcType=INTEGER},
+      subject_id = #{subjectId,jdbcType=VARCHAR},
+      type = #{type,jdbcType=TINYINT},
+      create_id = #{createId,jdbcType=VARCHAR},
+      create_time = #{createTime,jdbcType=TIMESTAMP},
+      updater_id = #{updaterId,jdbcType=VARCHAR},
+      update_time = #{updateTime,jdbcType=TIMESTAMP},
+      uptop_time = #{uptopTime,jdbcType=TIMESTAMP},
+      uptop_endtime = #{uptopEndtime,jdbcType=TIMESTAMP},
+      uptop_days = #{uptopDays,jdbcType=INTEGER},
+      content = #{content,jdbcType=LONGVARCHAR}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.JwContent">
+    update jw_content
+    set title = #{title,jdbcType=VARCHAR},
+      summary = #{summary,jdbcType=VARCHAR},
+      summary_img = #{summaryImg,jdbcType=VARCHAR},
+      content = #{content,jdbcType=LONGVARCHAR},
+      status = #{status,jdbcType=TINYINT},
+      readnum = #{readnum,jdbcType=INTEGER},
+      likenum = #{likenum,jdbcType=INTEGER},
+      subject_id = #{subjectId,jdbcType=VARCHAR},
+      type = #{type,jdbcType=TINYINT},
+      create_id = #{createId,jdbcType=VARCHAR},
+      create_time = #{createTime,jdbcType=TIMESTAMP},
+      updater_id = #{updaterId,jdbcType=VARCHAR},
+      update_time = #{updateTime,jdbcType=TIMESTAMP},
+      uptop_time = #{uptopTime,jdbcType=TIMESTAMP},
+      uptop_endtime = #{uptopEndtime,jdbcType=TIMESTAMP},
+      uptop_days = #{uptopDays,jdbcType=INTEGER}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  
+  <update id="updateUptopInfoByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.JwContent">
+    update jw_content
+    set  uptop_id = #{uptopId,jdbcType=VARCHAR},
+       uptop_time = #{uptopTime,jdbcType=TIMESTAMP},
+       uptop_endtime = #{uptopEndtime,jdbcType=TIMESTAMP},
+      uptop_days = #{uptopDays,jdbcType=INTEGER}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+   <update id="updateMsgStatusByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.JwContent">
+    update jw_content
+    set msg_status = #{msgStatus,jdbcType=TINYINT} 
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  
+  <select id="countUptopsByExample" parameterType="com.huaao.ejwplatform.dao.JwContentExampleExt" resultType="java.lang.Integer">
+    select  count(distinct a.id)  
+      from jw_content a ,  jw_content_dept b  
+ , sys_dept c  where  a.id=b.content_id  and b.dept_id=c.id 
+    <if test="deptCode != null">
+     	and c.code like #{deptCode}"%"
+    </if>
+  
+     <if test="status == 6">
+     	and (a.status=2 or a.status=1 or a.status=4)
+    </if>
+    <if test="status != null and status != 0  and status != 6">
+     	and a.status = #{status}
+    </if>
+    <if test="type != null">
+     	and a.type =  ${type}
+    </if>
+     and  date_format(date_add(a.uptop_time, interval uptop_days day),'%Y-%m-%d') &gt; date_format(now(), '%Y-%m-%d')  
+  </select>
+  
+  <select id="selectUpdaterDeptNameByUpdaterId" parameterType="java.lang.String" resultType="java.lang.String">
+  	select distinct d.name from sys_dept d,sys_user u , jw_content a where d.id=u.dept_id and u.id=a.updater_id and u.id=#{updaterId}
+  </select>
+  <!-- i学习查询 -->
+  <select id="countZhengCheXueXiByExample" parameterType="com.huaao.ejwplatform.dao.JwContentExampleExt" resultType="java.lang.Integer">
+    select count(distinct a.id) 
+    from jw_content a ,  jw_content_dept b  
+ 	, sys_dept c  where  a.id=b.content_id  and b.dept_id=c.id 
+ 	<if test="deptCodes == null and deptCode != null">
+     	and c.code like #{deptCode}"%"
+    </if>
+    <if test="deptCodes != null">
+    	and c.code in
+     	<foreach close=")" collection="deptCodes" index="index" item="deptCode" open="(" separator=",">
+            #{deptCode}
+        </foreach>
+    </if>
+     <if test="keyword != null">
+     	and a.title like CONCAT('%',#{keyword},'%')
+    </if>
+     <if test="sysSubjectId != null">
+     	and a.subject_id = #{sysSubjectId}
+    </if>
+   
+     <if test="status == 6">
+     	and (a.status=2 or a.status=1 or a.status=4)
+    </if>
+    <if test="status != null and status != 0  and status != 6">
+     	and a.status = #{status}
+    </if>
+    <if test="type != null">
+     	and a.type =  ${type}
+    </if>
+  </select>
+  <select id="selectZhengCheXueXiByExample" parameterType="map" resultMap="BaseMultiResultMap">
+    select <include refid="content_column_list" />
+  from jw_content a ,  jw_content_dept b   , sys_dept c  
+  where  a.id=b.content_id  and b.dept_id=c.id 
+   <if test="deptCodes == null and deptCode != null">
+     	and c.code like #{deptCode}"%"
+    </if>
+    <if test="deptCodes != null">
+    	and c.code in
+     	<foreach close=")" collection="deptCodes" index="index" item="deptCode" open="(" separator=",">
+            #{deptCode}
+        </foreach>
+    </if>
+     <if test="keyword != null">
+     	and a.title like CONCAT('%',#{keyword},'%') 
+    </if>
+     <if test="sysSubjectId != null">
+     	and a.subject_id = #{sysSubjectId}
+    </if>
+   
+     <if test="status == 6">
+     	and (a.status=2 or a.status=1 or a.status=4)
+    </if>
+    <if test="status != null and status != 0 and  status != 6">
+     	and a.status = #{status}
+    </if>
+    <if test="type != null">
+     	and a.type =  ${type}
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null">
+      <if test="offset != null">
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null">
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <select id="selectMultiByExample" parameterType="com.huaao.ejwplatform.dao.JwContentExample" resultMap="BaseMultiResultMap">
+    select 
+      distinct
+    a.id, a.title, a.summary, a.summary_img, a.content, a.status, a.readnum, 
+    a.likenum, a.subject_id, a.create_id, a.create_time, a.updater_id, a.update_time,
+    (select realname from sys_user b where b.id=a.updater_id ) as updater_name,
+    (select realname from sys_user b where b.id=a.create_id ) as create_name,
+    (case when a.status=1 then '待发布'  
+    when a.status=2 then '未审批'  
+    when a.status=3 then '已发布'  
+    when a.status=4 then '已撤销' 
+    else '未知' end) as status_name,a.type,a.uptop_time,a.uptop_days,a.uptop_id,a.msg_status,a.code
+  from jw_content a  where  1=1
+     <if test="keyword != null">
+     	and a.title like CONCAT('%',#{keyword},'%') 
+    </if>
+     <if test="sysSubjectId != null">
+     	and a.subject_id = #{sysSubjectId}
+    </if>
+ 
+     <if test="status == 6">
+     	and (a.status=2 or a.status=1 or a.status=4)
+    </if>
+    <if test="status != null and status != 0  and status != 6">
+     	and a.status = #{status}
+    </if>
+    <if test="type != null">
+     	and a.type =  ${type}
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null">
+      <if test="offset != null">
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null">
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <select id="selectMultiByExampleExt" parameterType="com.huaao.ejwplatform.dao.JwContentExample" resultMap="BaseMultiResultMap">
+    select <include refid="content_column_list" />
+  from jw_content a ,  jw_content_dept b   , sys_dept c  
+  where  a.id=b.content_id  and b.dept_id=c.id 
+    <if test="deptCodes == null and deptCode != null">
+     	and c.code like #{deptCode}"%"
+    </if>
+    <if test="deptCodes != null">
+    	and c.code in
+     	<foreach close=")" collection="deptCodes" index="index" item="deptCode" open="(" separator=",">
+            #{deptCode}
+        </foreach>
+    </if> 
+    <if test="subjectIds != null">
+    	and a.subject_id in
+     	<foreach close=")" collection="subjectIds" index="index" item="subjectId" open="(" separator=",">
+            #{subjectId}
+        </foreach>
+    </if>
+     <if test="keyword != null">
+     	and a.title like CONCAT('%',#{keyword},'%') 
+    </if>
+     <if test="sysSubjectId != null">
+     	and a.subject_id = #{sysSubjectId}
+    </if>
+     
+     <if test="status == 6">
+     	and (a.status=2 or a.status=1 or a.status=4)
+    </if>
+    <if test="status != null and status != 0  and status != 6">
+     	and a.status = #{status}
+    </if>
+    <if test="type != null">
+     	and a.type =  ${type}
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null">
+      <if test="offset != null">
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null">
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+
+	<!-- 根据Id查询内容 -->
+	<select id="selectMultiByIds" parameterType="Map" resultMap="BaseMultiResultMap">
+		select
+		<include refid="content_column_list" />
+		from jw_content a left join jw_content_dept b on a.id=b.content_id left join sys_dept c
+		on  b.dept_id=c.id  where a.id in
+		<foreach close=")" collection="list" index="index" item="item"
+			open="(" separator=",">
+			#{item}
+		</foreach>
+	</select>
+
+	
+</mapper>

@@ -1,0 +1,12 @@
+redis.host=120.26.169.207
+redis.port=6379
+redis.pass=huaao2017
+redis.maxIdle=50
+redis.maxActive=5000
+redis.maxWaitMillis=10000
+redis.save=true
+p12File=/Users/sujin/Downloads/WjwStandardDistributionCertificates-c3eC=q.p12
+p12Pwd=c3eC=q
+socket.hostname=localhost
+socket.port=8089
+socket.maxSize=1048576

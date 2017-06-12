@@ -1,0 +1,810 @@
+package com.huaao.ejwplatform.service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashSet;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+
+import net.sf.json.JSONObject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+
+import com.huaao.ejwplatform.common.Constants;
+
+import com.huaao.ejwplatform.common.Page;
+import com.huaao.ejwplatform.common.util.DateTool;
+import com.huaao.ejwplatform.common.util.FuncTool;
+import com.huaao.ejwplatform.common.web.BMapUtils;
+import com.huaao.ejwplatform.common.web.CoordConvert;
+import com.huaao.ejwplatform.common.web.Point;
+import com.huaao.ejwplatform.common.web.SystemException;
+import com.huaao.ejwplatform.dao.JwAlert;
+import com.huaao.ejwplatform.dao.JwAlertAppraise;
+import com.huaao.ejwplatform.dao.JwAlertAppraiseExample;
+import com.huaao.ejwplatform.dao.JwAlertExample;
+import com.huaao.ejwplatform.dao.JwAlertExample.Criteria;
+import com.huaao.ejwplatform.dao.SysAppointedRecord;
+import com.huaao.ejwplatform.dao.SysAppointedRecordExample;
+import com.huaao.ejwplatform.dao.SysAuditRecordExample;
+import com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs;
+import com.huaao.ejwplatform.dao.SysDeptWithBLOBs;
+import com.huaao.ejwplatform.dao.SysJobs;
+import com.huaao.ejwplatform.dao.SysUser;
+import com.huaao.ejwplatform.dao.SysUserExample;
+import com.huaao.ejwplatform.mapper.JwAlertAppraiseMapper;
+import com.huaao.ejwplatform.mapper.JwAlertMapper;
+import com.huaao.ejwplatform.mapper.SysAppointedRecordMapper;
+import com.huaao.ejwplatform.mapper.SysAuditRecordMapper;
+import com.huaao.ejwplatform.mapper.SysDeptMapper;
+import com.huaao.ejwplatform.mapper.SysJobsMapper;
+import com.huaao.ejwplatform.mapper.SysUserMapper;
+
+import com.huaao.ejwplatform.mapper.mymapper.JwAlertMapperExt;
+
+import com.huaao.ejwplatform.service.model.CommonDict;
+import com.huaao.ejwplatform.service.model.OnlinePolice;
+import com.huaao.ejwplatform.service.model.PushMessageType;
+import com.huaao.ejwplatform.service.system.DeptService;
+
+@Service
+public class AlertService {
+	private Logger log = LoggerFactory.getLogger(this.getClass());
+	
+	@Autowired
+	private PushService pushService;
+	@Autowired
+	private JwAlertMapper alertMapper;
+	@Autowired
+	private JwAlertMapperExt alertMapperExt;
+	@Autowired
+	private DeptService deptService;
+	@Autowired
+	private UserService userService;
+	@Autowired
+	private SysAuditRecordMapper sysAuditRecordMapper;
+	@Autowired
+	private SysUserMapper sysUserMapper = null;
+	@Autowired
+	private SysDeptMapper deptMapper = null;
+	@Autowired
+	private SysAppointedRecordMapper sysAppointedRecordMapper ;
+	@Autowired
+	private SysJobsMapper jobMapper;
+	@Autowired
+	private JwAlertAppraiseMapper appraiseMapper;
+	@Autowired
+	private StringRedisTemplate stringRedisTemplate;
+
+	//指挥调度在线民警最大距离
+	private static final int COMMAND_DISTANCE = 1600;
+	
+	
+	public String createAlert(String uid,JwAlert jwAlert)  throws Exception{
+		String id = FuncTool.createUUID();
+		jwAlert.setId(id);
+		FuncTool.fillCreaterAndUpdater(jwAlert, uid);
+		
+
+		if(jwAlert.getAlertTime() == null){
+			jwAlert.setAlertTime(new Date());
+		}
+
+		SysUser user = userService.queryUser(uid);
+		jwAlert.setUserName(user.getPhone());
+		jwAlert.setRealname(user.getRealname());
+		jwAlert.setStatus(0);
+		jwAlert.setCellphone(user.getPhone());
+		
+		String alertDeptId = null; 
+		if (jwAlert.getType() != null && 
+				(jwAlert.getType() == 1 || jwAlert.getType() == 3)) {
+			alertDeptId = this.getDeptIdByLocation(jwAlert.getLocation(), uid);
+		} else {
+			SysDeptWithBLOBs dept = deptService.getPolicyDeptByUserId(user.getId());
+			if (dept != null) {
+				alertDeptId = dept.getId();
+			}
+		}
+		//如果是补录的警情， alertDeptId填入录入人的部门ID
+		if(!StringUtils.isEmpty(jwAlert.getInputUser())){
+			alertDeptId = userService.queryUser(jwAlert.getInputUser()).getDeptId();
+			
+		}
+		if (alertDeptId == null) {
+			//分局用户提交的警情归属分局下的第一个派出所
+			SysDeptWithBLOBs dept = deptService.getFirstPoliceStationByUserid(user.getId());
+			if (dept != null) {
+				alertDeptId = dept.getId();
+			}
+		}
+		
+		
+		jwAlert.setAlertDeptId(alertDeptId);
+		jwAlert.setBdLocation(CoordConvert.Amap2Baidu(jwAlert.getLocation()));
+		
+		if(jwAlert.getType() != null && jwAlert.getClassify() == null){
+			jwAlert.setClassify(1);
+			//1-一键报警 2-随手记 3-举报 4-警情补录 , 一键报警默认案件类型为 群众求助； 随手记 对应投诉监督 ,举报 默认案件类型为举报线索；
+			// 群众求助1 ,举报线索2 ,投诉监督3 ,治安事件4 ,交通事件5 ,抢险救援6 ,刑事案件7
+			if(jwAlert.getType() == 2){
+				jwAlert.setClassify(3);
+			}
+			if(jwAlert.getType() == 3){
+				jwAlert.setClassify(2);
+			}
+		} 
+		
+		alertMapper.insertSelective(jwAlert);
+		// 存 警情到 redis
+		JSONObject jo = null;
+		String alertIds="";
+		String str = stringRedisTemplate.boundValueOps(CommonDict.REDIS_ALERT_NEWS).get();
+		if (StringUtils.isEmpty(str)) {
+			jo = new JSONObject();
+			alertIds = jwAlert.getId();
+		} else {
+			jo = JSONObject.fromObject(str);
+			if (jo.containsKey(alertDeptId)) {
+				alertIds = jo.getString(alertDeptId) + "," + jwAlert.getId();
+			} else {
+				alertIds = jwAlert.getId();
+			}
+		}
+		jo.put(alertDeptId, alertIds);
+		stringRedisTemplate.boundValueOps(CommonDict.REDIS_ALERT_NEWS).set(jo.toString());
+
+		//推送消息
+		if( jwAlert.getSaveFlag() == 0){
+			SysUser fui=userService.getUserById(uid);
+			pushAlertMessage(PushMessageType.Alerting, jwAlert, fui);
+		}
+		return id;
+	}
+
+	public void policeInput(String phone, String name, String uid, JwAlert jwAlert) throws Exception{
+		//判断手机号是否在sys_user里面存在， 如果存在取出userId,保存报警
+		//如果不存在，注册该用户，获取userId，保存报警
+		jwAlert.setInputUser(uid);
+		jwAlert.setSaveFlag(0);
+		jwAlert.setType(4);
+//		if(jwAlert.getLocation() != null){
+//			jwAlert.setLocation(CoordConvert.Baidu2Amap(jwAlert.getLocation()));
+//		}
+		SysUser su = userService.queryUserByPhone(phone);
+		if(su != null){
+			this.createAlert(su.getId(), jwAlert);
+		}else{
+			SysUser user = new SysUser();
+			user.setId(FuncTool.createUUID());
+			user.setPhone(phone);
+			user.setPassword(CommonDict.USER_DEFAULT_PASSWORD);
+			user.setIsUseable(0);
+			user.setUserName(name);
+			user.setType("foreUser");
+			user.setRealname(name);
+			user.setAuth("noAuth");
+			user.setAutoFlag(CommonDict.USER_AUTO_FLAG);
+			user = userService.addUser(user);
+			
+			this.createAlert(user.getId(), jwAlert);
+ 		}
+	}
+	
+
+	public void deleteAlert(List<String> ids)  throws Exception{
+		for(String id : ids){
+			JwAlert  aj = alertMapper.selectByPrimaryKey(id);
+			if(aj.getSaveFlag() == 1){
+				alertMapper.deleteByPrimaryKey(id);
+			}
+		}
+	}
+	
+	public void updateAlert(String uid,JwAlert jwAlert) throws Exception{
+		JwAlert old = alertMapper.selectByPrimaryKey(jwAlert.getId());
+		if(jwAlert.getSaveFlag() != null && old.getSaveFlag()==0 && jwAlert.getSaveFlag() == 1){
+			throw new Exception("警情已发布，不能改为保存");
+		}
+		
+		FuncTool.fillUpdater(jwAlert, uid);
+ 		alertMapper.updateByPrimaryKeySelective(jwAlert);
+ 		
+ 		//推送消息
+ 		if(jwAlert.getSaveFlag()!=null && old.getSaveFlag()==1 && jwAlert.getSaveFlag() == 0){
+ 			SysUser fui=userService.getUserById(uid);
+			pushAlertMessage(PushMessageType.Alerting, alertMapper.selectByPrimaryKey(jwAlert.getId()), fui);
+ 		}
+	}
+	
+	public List<JwAlert> queryMyAlertList(String uid, String types,Page page )  throws Exception{
+		JwAlertExample example = new JwAlertExample();
+		Criteria ct = example.createCriteria();
+		Criteria ct2 = example.createCriteria();
+		ct.andCreatorIdEqualTo(uid);
+		ct2.andInputUserEqualTo(uid);
+		if(!StringUtils.isEmpty(types)){
+			String[] t = types.trim().split(",");
+			List<Integer> list = new ArrayList<>();
+			for(String item : t){
+				list.add(Integer.parseInt(item));
+			}
+			ct.andTypeIn(list);
+			ct2.andTypeIn(list);
+			
+		}
+		if(page != null){
+			int totalCount = alertMapper.countByExample(example);
+			page.setTotalCount(totalCount);
+			example.setOffset(page.getOffset());
+			example.setLimit(page.getPageSize());
+			example.setOrderByClause(page.getSortby());
+ 		}
+ 		if(StringUtils.isEmpty(example.getOrderByClause()) ){
+ 			example.setOrderByClause(" create_time desc");
+ 		}
+ 		example.or(ct);
+ 		example.or(ct2);
+		return alertMapper.selectByExample(example);	
+	}
+	
+	public List<JwAlert> queryAlertList(JwAlert jwAlert, Page page , String keywords, String manageUserId ,String classify)  throws Exception{
+		try {
+			//派出所以上级别可以看到,否则只能看到委派给自己的
+			SysUser user = sysUserMapper.selectByPrimaryKey(manageUserId);
+			String code = deptMapper.selectByPrimaryKey(user.getDeptId()).getCode();
+			if(code == null || code.length() > 16){
+				SysAppointedRecordExample sarExample = new SysAppointedRecordExample();
+				sarExample.createCriteria().andUserIdEqualTo(manageUserId);
+				sarExample.setOrderByClause("appointe_time desc");
+				List<SysAppointedRecord> listSar = sysAppointedRecordMapper.selectByExample(sarExample);
+				List<String> listAlertId = new ArrayList<>();
+				for(SysAppointedRecord item : listSar){
+					listAlertId.add(item.getAlertId());
+				}
+				if(listAlertId == null || listAlertId.size() == 0){
+					return null;
+				}
+				List<JwAlert> listAlert = this.queryAlertList(listAlertId.toArray(new String[listAlertId.size()]));
+				Iterator<JwAlert> lt = listAlert.iterator();
+				
+				while(lt.hasNext()){
+					JwAlert ja = lt.next();
+					if(jwAlert.getStatus() != null){
+						if(jwAlert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_UNCHECK){
+							if(ja.getStatus() == CommonDict.AUDIT_STATUS_ALERT_SOLVED 
+									|| ja.getStatus() == CommonDict.AUDIT_STATUS_ALERT_APPRAISE){
+								lt.remove();
+							}
+						}
+						if(jwAlert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_SOLVED){
+							if(ja.getStatus() == CommonDict.AUDIT_STATUS_ALERT_UNCHECK 
+									|| ja.getStatus() == CommonDict.AUDIT_STATUS_ALERT_DELEGATE){
+								lt.remove();
+							}
+						}
+					}
+				}
+				
+				page.setTotalCount(listAlert.size());
+				
+				List<JwAlert> newAlert = new ArrayList<>();
+				if(page != null){
+					for(int i=0; i<page.getPageSize(); i++){
+						if(listAlert.size() > page.getOffset()+i){
+							newAlert.add(listAlert.get(page.getOffset()+i));
+						}
+					}
+				}
+				return newAlert;
+			}
+			
+			JwAlertExample example = new JwAlertExample();
+			Criteria ct = example.createCriteria();
+			Criteria ct2 = example.createCriteria();
+
+			example.setDistinct(true);
+
+			if(!StringUtils.isEmpty(jwAlert.getStatus()) ){
+				//未处理（未处理、已委派）
+				if(jwAlert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_UNCHECK){
+					List<Integer> statusList = new ArrayList<>();
+					statusList.add(CommonDict.AUDIT_STATUS_ALERT_UNCHECK);
+					statusList.add(CommonDict.AUDIT_STATUS_ALERT_DELEGATE);
+					ct.andStatusIn(statusList);
+					ct2.andStatusIn(statusList);
+				}else{
+					//已处理(待评价、已完成)
+					List<Integer> statusList = new ArrayList<>();
+					statusList.add(CommonDict.AUDIT_STATUS_ALERT_APPRAISE);
+					statusList.add(CommonDict.AUDIT_STATUS_ALERT_SOLVED);
+					ct.andStatusIn(statusList);
+					ct2.andStatusEqualTo(jwAlert.getStatus());
+				}
+			}
+			if(!StringUtils.isEmpty(jwAlert.getType()) ){
+				ct.andTypeEqualTo(jwAlert.getType());
+				ct2.andTypeEqualTo(jwAlert.getType());
+			}
+			if(!StringUtils.isEmpty(classify) ){
+				List<Integer> clist = new ArrayList<>();
+				String[] sarray = classify.split(",");
+				for(String sa : sarray){
+					clist.add(Integer.parseInt(sa));
+				}
+				ct.andClassifyIn(clist );
+				ct2.andClassifyIn(clist);
+			}
+//			if(!StringUtils.isEmpty(manageUserId)){
+//				List<String> userIds = userService.queryManageUserIds(manageUserId);
+//				Set<String> userIdSet = new HashSet<String>(userIds);
+//				//由于补录警情，自动创建的用户没有所属单位，根据录入人判定是否属于此部门
+//				List<Map<String,String>> mapList = alertMapperExt.selectCreatorIdToInputerId();
+//				for( Map<String,String> map : mapList){
+//					String key = map.get("creator_id");
+//					String inputUser = map.get("input_user");
+//					if(userIdSet.contains(inputUser)){
+//						userIds.add(key);
+//					}
+//				}
+//				ct.andCreatorIdIn(userIds);
+//				ct2.andInputUserIn(userIds);
+//			}
+
+			if(!StringUtils.isEmpty(keywords)){
+				SysUserExample userExample = new SysUserExample();
+				userExample.createCriteria().andRealnameLike("%"+keywords+"%");
+				userExample.or().andPhoneLike("%"+keywords+"%");
+				List<SysUser>  listUser = sysUserMapper.selectByExample(userExample);
+				List<String> userIds = FuncTool.copyPropertiesByName(listUser, "id");
+				if(userIds.size() == 0){
+					userIds.add("");
+				}
+				ct.andCreatorIdIn(userIds);
+				ct2.andInputUserIn(userIds);
+				
+ 			}
+			//当前用户所属部门及其子部门
+	 		List<SysDeptWithBLOBs> deptList = deptService.getAllDeptByDept(user.getDeptId());
+	 		List<String> deptIds = new ArrayList<>();
+	 		for (SysDeptWithBLOBs dept:deptList) {
+	 			deptIds.add(dept.getId());
+	 		}
+ 			ct.andAlertDeptIdIn(deptIds);
+ 			ct2.andAlertDeptIdIn(deptIds);
+ 			
+	 		ct.andSaveFlagEqualTo(0);
+	 		ct2.andSaveFlagEqualTo(0);
+	 		example.or(ct2);
+
+
+	 		if(page != null){
+				int totalCount = alertMapper.countByExample(example);
+				page.setTotalCount(totalCount);
+				example.setOffset(page.getOffset());
+				example.setLimit(page.getPageSize());
+				example.setOrderByClause(page.getSortby());
+	 		}
+	 		if(StringUtils.isEmpty(example.getOrderByClause()) ){
+	 			example.setOrderByClause(" create_time desc");
+	 		}
+			return alertMapper.selectByExample(example);
+		} catch (Exception e) {
+			throw e;
+		}
+	} 
+	
+	public List<JwAlert> queryAlertList(String[] alertIds )  throws Exception{
+		return queryAlertList(Arrays.asList(alertIds));
+	}
+	public List<JwAlert> queryAlertList(List<String> alertIds )  throws Exception{
+		if(alertIds == null || alertIds.size()==0){
+			return new ArrayList<>();
+		}
+		JwAlertExample example = new JwAlertExample();
+		example.createCriteria().andIdIn(alertIds);
+		example.setOrderByClause(" alert_time desc");
+		return alertMapper.selectByExample(example);
+	}
+	public JwAlert queryAlert(String alertId )  throws Exception{
+		return alertMapper.selectByPrimaryKey(alertId);
+	}
+	
+	public void releaseAlert(String uid,JwAlert jwAlert) throws Exception{
+		this.updateAlert(uid ,jwAlert);
+		
+		SysAuditRecordWithBLOBs saw = new SysAuditRecordWithBLOBs();
+		saw.setId(FuncTool.createUUID());
+		saw.setApplyId(jwAlert.getId());
+		saw.setAuditTime(new Date());
+		saw.setRemark(jwAlert.getRemark());
+		JwAlert alert = this.queryAlert(jwAlert.getId());
+		if(alert != null){
+			saw.setStatus(alert.getStatus());
+		}
+		saw.setCurStatus(CommonDict.AUDIT_STATUS_ALERT_APPRAISE);
+		saw.setType(CommonDict.AUDIT_TYPE_ALERT);
+		saw.setUserId(uid);
+		sysAuditRecordMapper.insertSelective(saw);
+		
+		//解除警情推送消息
+		//获取报警人信息
+		SysUser fui=userService.getUserById(jwAlert.getCreatorId());
+		pushAlertMessage(PushMessageType.Alerting, alert, fui);
+		
+	}
+	
+	public List<SysAuditRecordWithBLOBs> queryAuditRecordByApplyId(String applyId)  throws Exception{
+		SysAuditRecordExample example = new SysAuditRecordExample();
+		example.createCriteria().andApplyIdEqualTo(applyId);
+		example.setOrderByClause(" audit_time ");
+		return sysAuditRecordMapper.selectByExampleWithBLOBs(example);
+	}
+	
+		
+	/**
+	 * 警情封装推送消息
+	 * @param type
+	 * @param pushMessageType
+	 * @param alert
+	 * @param fui
+	 */
+	private void pushAlertMessage(PushMessageType pushMessageType, JwAlert alert, SysUser fui)  throws Exception{
+		pushAlertMessage(pushMessageType, alert, fui, null);
+	}
+	
+	private void pushAlertMessage(PushMessageType pushMessageType, JwAlert alert, SysUser fui, String target)  throws Exception{
+		pushService.createPushMessage(pushMessageType, alert, fui, target);
+	}
+	
+	/**
+	 * 委派警情，
+	 * 1, 添加sys_audit_record,
+	 * 2, 添加sys_appointed_record
+	 * 3, 更新jw_alert status,
+	 * 4, 发送消息通知
+	 * @param alertId
+	 * @param toUserId
+	 * @param curUser
+	 */
+	public void alertDelegate(String alertId, String toUserId, SysUser curUser) throws Exception{
+		JwAlert alert = alertMapper.selectByPrimaryKey(alertId);
+		SysUser toUser = userService.getUserById(toUserId);
+		SysAuditRecordWithBLOBs saw = new SysAuditRecordWithBLOBs();
+		saw.setId(FuncTool.createUUID());
+		saw.setApplyId(alert.getId());
+		saw.setAuditTime(new Date());
+		if(alert != null){
+			saw.setStatus(alert.getStatus());
+		}
+		saw.setCurStatus(CommonDict.AUDIT_STATUS_ALERT_DELEGATE);
+		saw.setType(CommonDict.AUDIT_TYPE_ALERT);
+		saw.setUserId(curUser.getId());
+		saw.setRemark(curUser.getRealname() + " 委派给 " + toUser.getRealname());
+		sysAuditRecordMapper.insertSelective(saw);
+		
+		SysAppointedRecord sar = new SysAppointedRecord();
+		sar.setId(FuncTool.createUUID());
+		sar.setAlertId(alert.getId());
+		sar.setUserId(toUserId);
+		sar.setType(CommonDict.AUDIT_STATUS_ALERT_DELEGATE);
+		sar.setAppointeId(curUser.getId());
+		sar.setAppointeTime(new Date());
+		sar.setOldDeptId(alert.getAlertDeptId());
+		sysAppointedRecordMapper.insertSelective(sar);
+		
+		alert.setStatus(CommonDict.AUDIT_STATUS_ALERT_DELEGATE);
+		alertMapper.updateByPrimaryKeySelective(alert);
+		
+		//推送消息
+		pushAlertMessage(PushMessageType.Alerting, alert, curUser, toUserId);
+	}
+	
+	/**
+	 * 查询警情的委派人和被委派人,第一个是委派人,第二个是被委派人
+	 * @param alertId
+	 * @return
+	 */
+	public List<SysUser> queryDelegateUsers(String alertId)  throws Exception{
+		SysAppointedRecordExample sarExample = new SysAppointedRecordExample();
+		sarExample.createCriteria().andAlertIdEqualTo(alertId);
+		sarExample.setOrderByClause("appointe_time desc");
+		List<SysAppointedRecord> listSar = sysAppointedRecordMapper.selectByExample(sarExample);
+		if(listSar.size() > 0){
+			List<SysUser> list = userService.queryUserList(listSar.get(0).getAppointeId(), listSar.get(0).getUserId());
+			if(list.get(0).getId().equals(listSar.get(0).getAppointeId())){
+				 return list;
+			}else{
+				List<SysUser> newlist = new ArrayList<>();
+				newlist.add(list.get(1));
+				newlist.add(list.get(0));
+				return newlist;
+			}
+		}
+		return null;
+	}
+	
+	
+	public List<OnlinePolice> queryNearByPolice(String alertId, String uid)  throws Exception{
+		JwAlert alert = alertMapper.selectByPrimaryKey(alertId);
+		String position = alert.getLocation();
+		Point alertPoint = new Point(position);
+		
+		SysUser sysUser = userService.getUserById(uid);
+		List<SysUser> users = userService.queryPoliceByDeptId(sysUser.getDeptId(), 1, null);
+		List<OnlinePolice> polices = new ArrayList<OnlinePolice>();
+		for(SysUser user: users){
+			String location = user.getPosition();
+			try{
+				double distance = BMapUtils.calcDistance(alertPoint, new Point(location));
+				if(distance < COMMAND_DISTANCE){
+					polices.add(genOnlinePolice(user, distance));
+				}else{
+					log.info("calc distance too long position="+position+" location="+location+" distance="+distance);
+				}
+			}catch(Exception ex){
+				//ex.printStackTrace();
+				log.error("calc distance error position="+position+" location="+location);
+			}
+		}
+		Collections.sort(polices, new Comparator<Object>() {
+			 public int compare(Object arg1, Object arg2) {
+				 int result = 0;
+				 OnlinePolice p1 = (OnlinePolice) arg1;
+				 OnlinePolice p2 = (OnlinePolice) arg2;
+				 if(p1.getDistance() > p2.getDistance()){
+					 result = 1;
+				 }else{
+					 result = -1;
+				 }
+				 return result;
+			 };
+		 });
+		 
+		return polices;
+	}
+	
+	public OnlinePolice genOnlinePolice(SysUser user, double distance) throws Exception{
+		OnlinePolice police = new OnlinePolice();
+		BeanUtils.copyProperties(user, police);
+		police.setDistance(distance);
+		SysDeptWithBLOBs dept = deptMapper.selectByPrimaryKey(user.getDeptId());
+		SysJobs jobs = jobMapper.selectByPrimaryKey(user.getJobsId());
+		police.setDeptName(dept.getName());
+		police.setJobsName(jobs.getName());
+		return police;
+	}
+	
+	/**
+	 * 警情评价.
+	 * @param alertApraise
+	 * @throws Exception
+	 */
+	public void appraiseAlert(JwAlertAppraise alertApraise) throws Exception{
+		String alertId = alertApraise.getAlertId();
+		//判断是否是待评价
+		JwAlert jwAlert = alertMapper.selectByPrimaryKey(alertId);
+		if (jwAlert == null) {
+			throw new Exception(Constants.API_MSG_ALERT_ID_INVALID);
+		}
+		if (jwAlert != null && jwAlert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_SOLVED) {
+			throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_APPRAISE, Constants.API_MSG_ALERT_ALREADY_APPRAISE);
+		}
+		appraiseMapper.insertSelective(alertApraise);
+		//修改为已完成
+		jwAlert.setStatus(1);
+		alertMapper.updateByPrimaryKeySelective(jwAlert);
+		//评价之后为已完成
+		saveAuditRecord(jwAlert.getId(), null, alertApraise.getUserId(),  CommonDict.AUDIT_STATUS_ALERT_SOLVED, CommonDict.AUDIT_TYPE_ALERT);
+	}
+	
+	/**
+	 *  警情移交.
+	 * @param alertId  警情ID,多个警情逗号分隔
+	 * @param deptId
+	 * @param userId
+	 * @throws Exception
+	 */
+	public void handoverAlert(String alertId, String deptId, String userId) throws Exception{
+		JwAlert jwAlert = alertMapper.selectByPrimaryKey(alertId);
+		if (jwAlert == null) {
+			throw new Exception(Constants.API_MSG_ALERT_ID_INVALID);
+		}
+		SysDeptWithBLOBs dept = deptService.getPolicyDeptByUserId(userId);
+		if (dept == null) {
+			dept = deptService.getDeptByUserId(userId);
+		}
+		//不允许移交给当前警情所属派出所
+		if (dept != null && deptId.equals(jwAlert.getAlertDeptId())) {
+			throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_BELONG_DEPT, Constants.API_MSG_ALERT_ALREADY_BELONG_DEPT);
+		}
+		//当前操作用户与当前警情部门归属不一致，不允许移交
+		if (dept != null && dept.getLevel().intValue() == 5
+				&& jwAlert.getAlertDeptId() != null && !jwAlert.getAlertDeptId().equals(dept.getId())) {
+			throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_HANDOVER, Constants.API_MSG_ALERT_ALREADY_HANDOVER);
+		}
+		if (jwAlert != null && jwAlert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_SOLVED) {
+			throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_SOLVED, Constants.API_MSG_ALERT_ALREADY_SOLVED);
+		}
+		if (jwAlert != null && jwAlert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_DELEGATE) {
+			throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_DELEGATE, Constants.API_MSG_ALERT_ALREADY_DELEGATE);
+		}
+		//非未待处理禁止移交
+		if (jwAlert.getStatus() != CommonDict.AUDIT_STATUS_ALERT_UNCHECK) {
+			throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_SOLVED, Constants.API_MSG_ALERT_ALREADY_SOLVED);
+		}
+		SysDeptWithBLOBs currDept = deptService.getDeptById(deptId);
+		//被移交的部门，即移交后负责处理警情的部门ID
+		jwAlert.setAlertDeptId(deptId);
+		jwAlert.setUpdaterId(userId);
+		jwAlert.setUpdateTime(Calendar.getInstance().getTime());
+		alertMapper.updateByPrimaryKeySelective(jwAlert);
+		String remark = "警情由"+dept.getName()+" 移交至 "+currDept.getName();
+		//移交之后仍为未处理
+		saveAuditRecord(alertId, remark, userId,  CommonDict.AUDIT_STATUS_ALERT_HANDOVER, CommonDict.AUDIT_TYPE_ALERT);
+		
+		//推送消息
+		//获取报警人信息
+		SysUser fui=userService.getUserById(jwAlert.getCreatorId());
+		pushAlertMessage(PushMessageType.Alerting, jwAlert, fui);
+	}
+	
+	/**
+	 * 保存警情操作日志.
+	 * @param applyId
+	 * @param remark
+	 * @param curStatus
+	 * @param type
+	 * @param userId
+	 * @throws Exception
+	 */
+	public void saveAuditRecord(String applyId, String remark, String userId, Integer curStatus, Integer type) throws Exception {
+		SysAuditRecordWithBLOBs saw = new SysAuditRecordWithBLOBs();
+		saw.setId(FuncTool.createUUID());
+		saw.setApplyId(applyId);
+		saw.setAuditTime(new Date());
+		saw.setRemark(remark);
+		JwAlert alert = this.queryAlert(applyId);
+		if (alert != null) {
+			saw.setStatus(alert.getStatus());
+		}
+		saw.setCurStatus(curStatus);
+		saw.setType(type);
+		saw.setUserId(userId);
+		sysAuditRecordMapper.insertSelective(saw);
+	}
+	
+	/**
+	 * 查询用户所属派出所，定位优先.
+	 * @param location 定位
+	 * @param userId 用户ID	
+	 * @return
+	 */
+	public String getDeptIdByLocation(String location, String userId) {
+		String deptId = null;
+		try {
+			if (location != null && location.contains(",")) {
+				//查询定位所在派出所
+				String[] xyLocation = location.split(",");
+				//查询所有派出所
+				List<SysDeptWithBLOBs> deptList = deptService.getAllPoliceStation();
+				//地图坐标转换
+				Point alertPoint = CoordConvert.Amap2Baidu(Double.parseDouble(xyLocation[0]), Double.parseDouble(xyLocation[1]));
+				for(SysDeptWithBLOBs dept:deptList){
+					if(StringUtils.isEmpty(dept.getXyz())){
+						continue;
+					}
+					List<Point> pts = new ArrayList<>();
+					for(String loc : dept.getXyz().split("\\|")){
+						double lng = Double.parseDouble(loc.split(",")[0]);
+						double lat = Double.parseDouble(loc.split(",")[1]);
+						pts.add(new Point(lng, lat));
+					}
+					boolean isInMap = BMapUtils.isPtInPoly(alertPoint.getLng(), alertPoint.getLat(), pts);
+					if(isInMap){
+						return dept.getId();
+					}
+				}
+			}
+		} catch (Exception e) {
+			log.error("查询用户所属派出所出错", e);
+		}
+		if(deptId == null){
+			//查询用户注册地所属派出所
+			SysDeptWithBLOBs dept = deptService.getPolicyDeptByUserId(userId);
+			deptId = dept.getId();
+		}
+		return deptId;
+	}
+
+	/**
+	 * 查评价反馈记录.
+	 * @param alertId
+	 * @return
+	 */
+	public JwAlertAppraise queryAlertAppraiseByApplyId(String alertId) {
+		return appraiseMapper.selectByPrimaryKey(alertId);
+	}
+
+	/**
+	 * 批量评价警情.
+	 */
+	public void appraiseStatusBatch() throws Exception{
+		Date currentTime = Calendar.getInstance().getTime();
+		Date tmpTime = DateTool.addDays(currentTime, -7);
+		String invalidTimeStr = DateTool.formatDate(tmpTime) + " 00:00:00";
+		Date invalidTime = DateTool.parseDateTime(invalidTimeStr);
+		JwAlertExample example = new JwAlertExample();
+		example.createCriteria()
+			.andStatusEqualTo(CommonDict.AUDIT_STATUS_ALERT_APPRAISE)
+			.andTypeNotEqualTo(2)
+			.andUpdateTimeLessThanOrEqualTo(invalidTime);
+		
+		List<JwAlert> alerts = alertMapper.selectByExample(example);
+		
+		for (JwAlert alert:alerts) {
+			//已完成
+			alert.setStatus(CommonDict.AUDIT_STATUS_ALERT_SOLVED);
+			//updateTime不更新
+			alertMapper.updateByPrimaryKeySelective(alert);
+			//记录到评价反馈日志
+			JwAlertAppraise alertApraise = new JwAlertAppraise();
+			alertApraise.setAlertId(alert.getId());
+			alertApraise.setCreateTime(currentTime);
+			alertApraise.setFeedbackResult(5);
+			alertApraise.setProcessingEfficiency(5);
+			alertApraise.setTurningSpeed(5);
+			//自动评价的评价人为警情提交人
+			alertApraise.setUserId(alert.getCreatorId());
+			JwAlertAppraiseExample exa = new JwAlertAppraiseExample();
+			exa.createCriteria().andAlertIdEqualTo(alert.getId());
+			if (appraiseMapper.countByExample(exa) > 0) {
+				log.info("alert {} is already appraise , can't repeat appraise.", alert.getId());
+				continue;
+			} else {
+				//系统自动评价，评价人ID为空
+				appraiseMapper.insertSelective(alertApraise);
+				//评价之后为已完成
+				String remark = "系统自动评价";
+				saveAuditRecord(alert.getId(), remark, alertApraise.getUserId(),  CommonDict.AUDIT_STATUS_ALERT_SOLVED, CommonDict.AUDIT_TYPE_ALERT);
+			}
+		}
+	}
+	
+	public List<JwAlert> queryAlertByDept(String  deptId,String startTime, String endTime) throws Exception{
+		if(deptId == null ){
+			return new ArrayList<>();
+		}
+		JwAlertExample example = new JwAlertExample();
+		com.huaao.ejwplatform.dao.JwAlertExample.Criteria c = example.createCriteria();
+		c.andAlertDeptIdEqualTo(deptId).andSaveFlagEqualTo(0);
+		if(!StringUtils.isEmpty(startTime)){
+			c.andAlertTimeGreaterThanOrEqualTo(DateTool.parseDateTime(startTime));
+		}
+		if(!StringUtils.isEmpty(endTime)){
+			c.andAlertTimeLessThan(DateTool.parseDateTime(endTime));
+		}
+		return alertMapper.selectByExample(example);
+	}
+	//查询警情数量
+	public Integer queryAlertToDoCount(Integer status, String deptId) {
+		JwAlertExample example = new JwAlertExample();
+		example.createCriteria().andStatusEqualTo(status).andAlertDeptIdEqualTo(deptId);
+		return alertMapper.countByExample(example);
+	}
+}

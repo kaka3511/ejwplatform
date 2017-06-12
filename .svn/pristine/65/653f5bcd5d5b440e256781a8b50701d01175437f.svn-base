@@ -1,0 +1,486 @@
+package com.huaao.ejwplatform.service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.huaao.ejwplatform.common.Constants;
+import com.huaao.ejwplatform.common.Page;
+import com.huaao.ejwplatform.common.util.DateTool;
+import com.huaao.ejwplatform.common.util.FuncTool;
+import com.huaao.ejwplatform.common.web.SystemException;
+import com.huaao.ejwplatform.dao.JwCriminalAppraise;
+import com.huaao.ejwplatform.dao.JwCriminalRecord;
+import com.huaao.ejwplatform.dao.JwCriminalRecordExample;
+import com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs;
+import com.huaao.ejwplatform.dao.SysDept;
+import com.huaao.ejwplatform.dao.SysUser;
+import com.huaao.ejwplatform.mapper.JwCriminalAppraiseMapper;
+import com.huaao.ejwplatform.mapper.JwCriminalRecordMapper;
+import com.huaao.ejwplatform.mapper.SysAuditRecordMapper;
+import com.huaao.ejwplatform.service.model.CommonDict;
+import com.huaao.ejwplatform.service.model.CriminalAuthStatusEnum;
+import com.huaao.ejwplatform.service.model.CriminalRecordInfo;
+import com.huaao.ejwplatform.service.system.DeptService;
+ 
+
+@Service
+public class CriminalService {
+	private static final Logger LOG = LoggerFactory.getLogger(CriminalService.class);
+	
+	/**
+	 * 类型
+	 */
+	private static final int TYPE = 1;
+
+	@Autowired
+	private JwCriminalRecordMapper jwCriminalRecordMapper;
+	
+	@Autowired
+	private JwCriminalAppraiseMapper jwCriminalAppraiseMapper;
+	
+	@Autowired
+	private SysAuditRecordMapper sysAuditRecordMapper;
+	
+	@Autowired
+	private ApplyRecordService applyRecordService;
+
+	@Autowired
+	private DeptService deptService;
+	
+	@Autowired
+	private UserService userService;
+	
+	@Autowired
+	private PushService pushService;
+	
+	@Autowired
+	private BusinessDeptService businessDeptService;
+	
+	/**
+	 * 记录日志
+	 * @param userId
+	 * @param criminalId
+	 * @param cas
+	 */
+	public void logApply(String userId, String criminalId, CriminalAuthStatusEnum cas, String remark, Date d){
+		applyRecordService.add(TYPE, userId, criminalId, cas.getCode(), cas.getAction(), remark, d);
+	}
+	
+	/**
+	 * 证明受理
+	 * @param criminalIds
+	 * @param authStatus
+	 * @param authDesc
+	 */
+	@Transactional
+	public void updateAcceptCriminal(String criminalIds, Integer authStatus, String authDesc, String uid){
+		Date dt = new Date();
+		SysUser user = userService.getUserById(uid);
+		SysDept dept = deptService.getDeptById(user.getDeptId());
+		String deptId = dept==null?null:dept.getId();
+		String[] ids = criminalIds.split(",");
+		JwCriminalRecord jcr = new JwCriminalRecord();
+		jcr.setAuthDesc(authDesc);
+		jcr.setDeptId(deptId);
+		jcr.setAuthStatus(authStatus.intValue()==1?1:5);
+		jcr.setUpdateTime(dt);
+		jcr.setPoliceId(uid);
+		jcr.setPoliceName(user.getRealname());
+		jcr.setPolicePhone(user.getPhone());
+		jcr.setAuditTime(dt);
+		jcr.setFinishTime(dt);
+        jwCriminalRecordMapper.batchUpdateRecord(Arrays.asList(ids), jcr);
+        for(String id : ids){
+        	logApply(uid, id, authStatus.intValue()==1?CriminalAuthStatusEnum.DAI_SHEN_PI:CriminalAuthStatusEnum.WEI_TONG_GUO, authDesc, dt);
+        	pushService.createApplyPushMessage(id);
+        }
+	}
+	
+	/**
+	 * 设置犯罪记录标记
+	 * @param criminalIds 记录id，多个逗号分隔
+	 * @param hasRecord 是否有犯罪记录 1 没有 ， 2 有
+	 */
+	@Transactional
+	public void updateHasRecord(String criminalIds, Integer hasRecord, String uid){
+		String[] ids = criminalIds.split(",");
+		JwCriminalRecord jcr = new JwCriminalRecord();
+		jcr.setHasRecord(hasRecord);
+		if(hasRecord == 2){
+			jcr.setAuthStatus(CommonDict.AUDIT_STATUS_CRIMINAL__RECEIVED);
+		}else{
+			jcr.setAuthStatus(CommonDict.AUDIT_STATUS_CRIMINAL_CONFIRMING);
+		}
+		Date dt = new Date();
+		jcr.setUpdateTime(dt);
+		jcr.setAuditTime(dt);
+		jcr.setInvalidTime(DateTool.getDateByAddDays(dt, 7, 1));
+        jwCriminalRecordMapper.batchUpdateRecord(Arrays.asList(ids), jcr);
+        for(String id : ids){
+        	logApply(uid, id, CriminalAuthStatusEnum.DAI_QUE_REN, null, dt);
+        	pushService.createApplyPushMessage(id);
+        }
+	}
+	
+	/**
+	 * 添加用户接收方式
+	 * @param criminalId
+	 * @param recieveType 1 自取 2 EMS
+	 */
+	@Transactional
+	public void addSelectReceive(String criminalId, Integer recieveType, String uid, String qrcode){
+		Date dt = Calendar.getInstance().getTime();
+		JwCriminalRecord jcr = new JwCriminalRecord();
+		jcr.setId(criminalId);
+		jcr.setRecieveType(recieveType);
+		jcr.setUpdateTime(dt);
+		jcr.setAuthStatus(recieveType.intValue()==1?3:9);
+		jcr.setQrcode(qrcode);
+		jwCriminalRecordMapper.updateByPrimaryKeySelective(jcr);
+		logApply(uid, criminalId, recieveType.intValue()==1?CriminalAuthStatusEnum.DAI_ZI_QU:CriminalAuthStatusEnum.WAIT_PAY, null, dt);
+		if(recieveType.intValue() == 1){
+	    	pushService.createApplyPushMessage(criminalId);
+		}
+	}
+	
+	/**
+	 * 更新支付状态
+	 * @param criminalId
+	 */
+	@Transactional
+	public void addSelectReceive(String criminalId){
+		Date dt = Calendar.getInstance().getTime();
+		JwCriminalRecord jcr = new JwCriminalRecord();
+		jcr.setId(criminalId);
+		jcr.setUpdateTime(new Date());
+		jcr.setAuthStatus(4);
+		jwCriminalRecordMapper.updateByPrimaryKeySelective(jcr);
+		logApply("", criminalId, CriminalAuthStatusEnum.PEI_SONG_ZHONG, null, dt);
+	    pushService.createApplyPushMessage(criminalId);
+	}
+
+	/**
+	 * 新增无犯罪记录证明
+	 * @param jcr
+	 */
+	@Transactional
+	public void addCriminalRecord(JwCriminalRecord jcr) {
+		jwCriminalRecordMapper.insert(jcr);
+		logApply(jcr.getUserId(), jcr.getId(), CriminalAuthStatusEnum.DAI_SHOU_LI, null, jcr.getCreateTime());
+		/*applyRecordService.add(TYPE, jcr.getUserId(), jcr.getId(),
+				CriminalAuthStatusEnum.DAI_SHOU_LI.getCode(), "提交申请");*/
+	}
+
+	/**
+	 * 更新无犯罪记录证明
+	 * @param jcr
+	 */
+	@Transactional
+	public void updateCriminalRecord(JwCriminalRecord jcr) {
+		jwCriminalRecordMapper.updateByPrimaryKeySelective(jcr);
+	}
+	
+	/**
+	 * 查询无犯罪记录申请列表
+	 * @param uid
+	 * @param authStatus
+	 */
+	public List<JwCriminalRecord> selectCriminalList(Page page, String orderby, String keyword, String userId, String authStatus, String uid , Integer hasRecord) {
+		SysDept dept = deptService.getDeptByUserId(uid);
+		if("小区".equals(dept.getType())){
+			if(StringUtils.isNotBlank(userId)){
+				return selectCriminalListByResident(page, orderby, keyword, userId, authStatus, uid,hasRecord);
+			}
+		}
+		if("公安".equals(dept.getType())){
+			if(dept.getLevel().intValue() == 5){//派出所用户，默认查询该用户所在派出所范围内的所有无犯罪记录申请
+				return selectCriminalListByPoliceStation(page, orderby, keyword, authStatus, uid,hasRecord);
+			}
+			if(dept.getLevel().intValue() == 6){//民警，根据所配置的审批用户权限查询无犯罪记录列表(民警暂时不需要查询及审批)
+				LOG.info("当前用户{},level为{}无查看无犯罪记录申请记录的权限", uid, dept.getLevel().intValue());
+//				return selectCriminalListByPoliceOffice(page, orderby, keyword, authStatus, uid);
+				return null;
+			}
+		}
+		LOG.info("当前用户{},level为{}无查看无犯罪记录申请记录的权限", uid, dept.getLevel().intValue());
+		return null;
+	}
+	
+	/**
+	 * 民警，查询无犯罪记录申请列表
+	 * @param page
+	 * @param orderby
+	 * @param keyword
+	 * @param authStatus
+	 * @param uid
+	 * @return
+	 */
+//	public List<JwCriminalRecord> selectCriminalListByPoliceOffice(Page page, String orderby, String keyword, String authStatus, String uid) {
+//		JwCriminalRecordExample example = new JwCriminalRecordExample();
+//		JwCriminalRecordExample.Criteria criteria = example.createCriteria();
+//		SysDept dept = deptService.getDeptByUserId(uid);
+//		//民警，根据所配置的审批用户权限查询无犯罪记录列表
+//		//查看是否有权限访问无犯罪记录证明
+//		if(!businessDeptService.checkJurisdictionByUserIdAndType(uid, 1)){
+//			LOG.info("当前用户{}，无查看无犯罪记录申请记录的权限", uid);
+//			return null; 
+//		}
+//		createAuthStatusCriteria(authStatus, criteria);
+//		if(StringUtils.isNotBlank(keyword)){
+//			example.setKeyword(keyword);
+//		}
+//		criteria.andDeptIdEqualTo(dept.getParentId());//民警所在派出所
+//		int total = jwCriminalRecordMapper.countByExampleExt(example);
+//		page.setTotalCount(total);
+//		example.setOffset(page.getOffset());
+//		example.setLimit(page.getPageSize());
+//		example.setOrderByClause(orderby);
+//		return jwCriminalRecordMapper.selectByExampleExt(example);
+//	}
+	
+	/**
+	 * 派出所，查询无犯罪记录申请列表
+	 * @param page
+	 * @param orderby
+	 * @param keyword
+	 * @param authStatus
+	 * @param uid
+	 * @return
+	 */
+	public List<JwCriminalRecord> selectCriminalListByPoliceStation(Page page, String orderby, String keyword, String authStatus, String uid,Integer hasRecord) {
+		if(!businessDeptService.checkJurisdictionByUserIdAndType(uid, 1)){
+			LOG.info("当前用户{}，无查看无犯罪记录申请记录的权限", uid);
+			return null; 
+		}
+		JwCriminalRecordExample example = new JwCriminalRecordExample();
+		JwCriminalRecordExample.Criteria criteria = example.createCriteria();
+		SysDept dept = deptService.getDeptByUserId(uid);
+		//派出所用户，默认查询该用户所在派出所范围内的所有无犯罪记录申请
+		criteria.andDeptIdEqualTo(dept.getId());
+		createAuthStatusCriteria(authStatus, criteria);
+		if(StringUtils.isNotBlank(keyword)){
+			example.setKeyword(keyword);
+		}
+		if(hasRecord != null){
+			example.setHasRecord(hasRecord);
+		}
+		int total = jwCriminalRecordMapper.countByExampleExt(example);
+		page.setTotalCount(total);
+		example.setOffset(page.getOffset());
+		example.setLimit(page.getPageSize());
+		example.setOrderByClause(orderby);
+		return jwCriminalRecordMapper.selectByExampleExt(example);
+	}
+
+	private void createAuthStatusCriteria(String authStatus, JwCriminalRecordExample.Criteria criteria) {
+		List<Integer> authStatusList = new ArrayList<Integer>();
+		if(StringUtils.isNotBlank(authStatus)){
+			String[] authArray = authStatus.split(",");
+			for(String authString:authArray){
+				authStatusList.add(Integer.parseInt(authString));
+			}
+			if(authStatusList.size() > 1){
+				criteria.andAuthStatusIn(authStatusList);
+			}else{
+				criteria.andAuthStatusEqualTo(authStatusList.get(0));
+			}
+		}
+	}
+
+	/**
+	 * 居民，查询无犯罪记录申请列表
+	 * @param page
+	 * @param orderby
+	 * @param keyword
+	 * @param userId  查询该用户
+	 * @param authStatus
+	 * @param uid
+	 * @return
+	 */
+	private List<JwCriminalRecord> selectCriminalListByResident(Page page, String orderby, String keyword,
+			String userId, String authStatus, String uid, Integer hasRecord) {
+		JwCriminalRecordExample example = new JwCriminalRecordExample();
+		JwCriminalRecordExample.Criteria criteria = example.createCriteria();
+		criteria.andUserIdEqualTo(userId);//居民，根据申请人ID查询
+		createAuthStatusCriteria(authStatus, criteria);
+		if(StringUtils.isNotBlank(keyword)){
+			example.setKeyword(keyword);
+		}
+		if(hasRecord != null){
+			example.setHasRecord(hasRecord);
+		}
+		int total = jwCriminalRecordMapper.countByExampleExt(example);
+		page.setTotalCount(total);
+		example.setOffset(page.getOffset());
+		example.setLimit(page.getPageSize());
+		example.setOrderByClause(orderby);
+		return jwCriminalRecordMapper.selectByExampleExt(example);
+	}
+	
+	/**
+	 * 更新无犯罪记录证明申请单的状态
+	 */
+	public void updateCriminalAuthStatus() throws Exception{
+		List<Integer> statusList = new ArrayList<>();
+		statusList.add(CriminalAuthStatusEnum.DAI_QUE_REN.getCode());
+		statusList.add(CriminalAuthStatusEnum.DAI_SHOU_LI.getCode());
+		statusList.add(CriminalAuthStatusEnum.DAI_ZI_QU.getCode());
+		Date currentDate = Calendar.getInstance().getTime();
+		String invalidTimeStr = DateTool.formatDate(currentDate) + " 00:00:00";
+		Date invalidTime = DateTool.parseDateTime(invalidTimeStr);
+		JwCriminalRecordExample example = new JwCriminalRecordExample();
+		example.createCriteria()
+			.andAuthStatusIn(statusList)
+			.andInvalidTimeLessThanOrEqualTo(invalidTime);
+		
+		List<JwCriminalRecord> recordList = jwCriminalRecordMapper.selectByExample(example);
+		for(JwCriminalRecord jcr:recordList){
+			String remark = null;
+			if(jcr.getAuthStatus().intValue() == CriminalAuthStatusEnum.DAI_QUE_REN.getCode()){
+				remark = "审核通过7天未选择领取方式";
+			}else if(jcr.getAuthStatus().intValue() == CriminalAuthStatusEnum.DAI_SHOU_LI.getCode()){
+				remark = "超过7天未受理";
+			}else if(jcr.getAuthStatus().intValue() == CriminalAuthStatusEnum.DAI_ZI_QU.getCode()){
+				remark = "超过7天未自行领取";
+			}
+			this.logApply("", jcr.getId(), CriminalAuthStatusEnum.YI_SHI_XIAO, null, currentDate);
+			jcr.setAuthStatus(CriminalAuthStatusEnum.YI_SHI_XIAO.getCode());
+			jcr.setUpdateTime(currentDate);
+			jwCriminalRecordMapper.updateByPrimaryKeySelective(jcr);
+			LOG.info("申请记录{}失效，愿因为：{}",jcr.getId(), remark);
+		}
+	}
+	
+	/**
+	 * 网上办事评价
+	 * @param criminalApraise
+	 * @throws Exception
+	 */
+	public void appraiseCriminal(JwCriminalAppraise criminalAppraise,String uid) throws Exception{
+		String criminalId = criminalAppraise.getCriminalId();
+		//判断是否是可以进行评价
+		JwCriminalRecord jwCriminalRecord = jwCriminalRecordMapper.selectByPrimaryKey(criminalId);
+		if (jwCriminalRecord == null) {
+			throw new Exception(Constants.API_MSG_CRIMINAL_ID_INVALID);
+		}
+		if (jwCriminalRecord.getAuthStatus() != CommonDict.AUDIT_STATUS_CRIMINAL_SIGNED && 
+				jwCriminalRecord.getAuthStatus() != CommonDict.AUDIT_STATUS_CRIMINAL__RECEIVED &&
+				jwCriminalRecord.getHasRecord()!= 2){
+			throw SystemException.init(Constants.API_CODE_CRIMINAL_REFUSED_APPRAISE, Constants.API_MSG_CRIMINAL_REFUSED_APPRAISE);
+		}
+		if (jwCriminalRecord.getAuthStatus() == CommonDict.AUDIT_STATUS_CRIMINAL_SOLVED) {
+			throw SystemException.init(Constants.API_CODE_CRIMINAL_ALREADY_APPRAISE, Constants.API_MSG_CRIMINAL_ALREADY_APPRAISE);
+		}
+		jwCriminalAppraiseMapper.insertSelective(criminalAppraise);
+		//修改为已完成
+		jwCriminalRecord.setAuthStatus(10);
+		jwCriminalRecordMapper.updateByPrimaryKeySelective(jwCriminalRecord);
+		//评价之后为已完成
+		//saveAuditRecord(jwCriminalRecord.getId(), null, criminalAppraise.getUserId(),  CommonDict.AUDIT_STATUS_CRIMINAL_SOLVED, CommonDict.AUDIT_TYPE_CRIMINAL);
+		logApply(uid, criminalId,  CriminalAuthStatusEnum.YI_PIN_JIA , null, new Date());
+	}
+	
+	
+	/**
+	 * 网上办事评价结果查询
+	 * @param jwCriminalRecord
+	 * @throws Exception
+	 */
+	public JwCriminalAppraise queryCriminalAppraise(String jwCriminalRecordId) throws Exception{
+		if(jwCriminalRecordId == null)
+			return null;
+		return jwCriminalAppraiseMapper.selectByPrimaryKey(jwCriminalRecordId);
+	}
+	
+	
+	/**
+	 * 保存网上办事操作日志.
+	 * @param applyId
+	 * @param remark
+	 * @param curStatus
+	 * @param type
+	 * @param userId
+	 * @throws Exception
+	 */
+	public void saveAuditRecord(String applyId, String remark, String userId, Integer curStatus, Integer type) throws Exception {
+		SysAuditRecordWithBLOBs saw = new SysAuditRecordWithBLOBs();
+		saw.setId(FuncTool.createUUID());
+		saw.setApplyId(applyId);
+		saw.setAuditTime(new Date());
+		saw.setRemark(remark);
+		JwCriminalRecord criminal = jwCriminalRecordMapper.selectByPrimaryKey(applyId);
+		if (criminal != null) {
+			saw.setStatus(criminal.getStatus());
+		}
+		saw.setCurStatus(curStatus);
+		saw.setType(type);
+		saw.setUserId(userId);
+		sysAuditRecordMapper.insertSelective(saw);
+	}
+
+	public void confirmEmsRecord(String recordId) {
+		// TODO Auto-generated method stub
+		JwCriminalRecord record = new JwCriminalRecord();
+		record.setId(recordId);
+		//status 6 已签收：快递单号状态变为收件
+		record.setAuthStatus(6);
+		record.setUpdateTime(new Date());
+		jwCriminalRecordMapper.updateByPrimaryKeySelective(record);
+		logApply("", recordId, CriminalAuthStatusEnum.YI_QIAN_SHOU, null, new Date());
+		pushService.createApplyPushMessage(recordId);
+	}
+	
+	public void appraiseStatusBatch() throws Exception{
+		Date currentTime = Calendar.getInstance().getTime();
+		Date tmpTime = DateTool.addDays(currentTime, -7);
+		String invalidTimeStr = DateTool.formatDate(tmpTime) + " 00:00:00";
+		Date invalidTime = DateTool.parseDateTime(invalidTimeStr);
+		
+		JwCriminalRecordExample example = new JwCriminalRecordExample();
+ 		example.createCriteria().andAuthStatusIn(Arrays.asList(new Integer[]{CommonDict.AUDIT_STATUS_CRIMINAL_SIGNED  , CommonDict.AUDIT_STATUS_CRIMINAL__RECEIVED})) 
+			.andUpdateTimeLessThan(invalidTime);
+		
+		List<JwCriminalRecord> messages = jwCriminalRecordMapper.selectByExample(example);
+		
+		for (JwCriminalRecord message:messages) {
+			if(jwCriminalAppraiseMapper.selectByPrimaryKey(message.getId()) == null){
+				JwCriminalAppraise criminalAppraise = new JwCriminalAppraise();
+				criminalAppraise.setCriminalId(message.getId());
+				criminalAppraise.setFeedbackResult(5);
+				criminalAppraise.setProcessingEfficiency(5);
+				criminalAppraise.setTurningSpeed(5);
+				criminalAppraise.setCreateTime(Calendar.getInstance().getTime());
+				criminalAppraise.setUserId(message.getUserId());
+	 			appraiseCriminal(criminalAppraise,message.getUserId());
+			}
+		}
+	}
+
+	/**
+	 * @param criminalId
+	 * @return
+	 */
+	public JwCriminalRecord selectCriminalById(String criminalId) {
+		return jwCriminalRecordMapper.selectByPrimaryKey(criminalId);
+	}
+	
+	public CriminalRecordInfo getCriminalRecordInfo(JwCriminalRecord record) {
+		CriminalRecordInfo recordInfo = new CriminalRecordInfo();
+		FuncTool.copyProperties(record, recordInfo);
+		if(record.getDeptId() != null){
+			SysDept dept = deptService.getDeptById(record.getDeptId());
+			recordInfo.setDeptName(dept.getName());
+		}
+		return recordInfo;
+	}
+}

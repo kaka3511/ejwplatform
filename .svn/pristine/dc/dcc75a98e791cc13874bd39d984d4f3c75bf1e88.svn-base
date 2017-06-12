@@ -1,0 +1,852 @@
+package com.huaao.ejwplatform.service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.http.client.ClientProtocolException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import com.huaao.ejwplatform.common.Constants;
+import com.huaao.ejwplatform.common.Page;
+import com.huaao.ejwplatform.common.security.Digests;
+import com.huaao.ejwplatform.common.security.Encodes;
+import com.huaao.ejwplatform.common.security.MD5;
+import com.huaao.ejwplatform.common.security.SHA1CredentialsDigest;
+import com.huaao.ejwplatform.common.sms.SmsUtil;
+import com.huaao.ejwplatform.common.util.FuncTool;
+import com.huaao.ejwplatform.common.util.JSONUtil;
+import com.huaao.ejwplatform.common.util.TokenUtil;
+import com.huaao.ejwplatform.common.yuntu.YunTuApi;
+import com.huaao.ejwplatform.dao.SysArea;
+import com.huaao.ejwplatform.dao.SysAuditRecordExample;
+import com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs;
+import com.huaao.ejwplatform.dao.SysDeptExample;
+import com.huaao.ejwplatform.dao.SysDeptWithBLOBs;
+import com.huaao.ejwplatform.dao.SysJobs;
+import com.huaao.ejwplatform.dao.SysJobsExample;
+import com.huaao.ejwplatform.dao.SysLogsLogin;
+import com.huaao.ejwplatform.dao.SysUser;
+import com.huaao.ejwplatform.dao.SysUserAudit;
+import com.huaao.ejwplatform.dao.SysUserAuditExample;
+import com.huaao.ejwplatform.dao.SysUserExample;
+import com.huaao.ejwplatform.dao.SysUserExample.Criteria;
+import com.huaao.ejwplatform.dao.SysUserLog;
+import com.huaao.ejwplatform.dao.UserDto;
+import com.huaao.ejwplatform.mapper.JwNoticeMapper;
+import com.huaao.ejwplatform.mapper.SysAuditRecordMapper;
+import com.huaao.ejwplatform.mapper.SysDeptMapper;
+import com.huaao.ejwplatform.mapper.SysJobsMapper;
+import com.huaao.ejwplatform.mapper.SysLogsLoginMapper;
+import com.huaao.ejwplatform.mapper.SysUserAuditMapper;
+import com.huaao.ejwplatform.mapper.SysUserLogMapper;
+import com.huaao.ejwplatform.mapper.SysUserMapper;
+import com.huaao.ejwplatform.mapper.mymapper.UserInfoMapper;
+import com.huaao.ejwplatform.service.model.CommonDict;
+import com.huaao.ejwplatform.service.model.DtoAreaResponse;
+import com.huaao.ejwplatform.service.model.DtoDeptResponse;
+import com.huaao.ejwplatform.service.model.DtoUserInfoResponse;
+import com.huaao.ejwplatform.service.model.PushMessageType;
+import com.huaao.ejwplatform.service.model.UserActionEnum;
+import com.huaao.ejwplatform.service.model.UserInfo;
+import com.huaao.ejwplatform.service.model.VerifyInfo;
+import com.huaao.ejwplatform.service.system.AreaService;
+import com.huaao.ejwplatform.service.system.DeptService;
+
+import net.sf.json.JSONObject;
+
+@Service
+public class UserService {
+	
+	private Logger log = LoggerFactory.getLogger(this.getClass());
+	
+	private static final int SALT_SIZE = 8;
+	private static final String initPwd = "123456";
+	@Autowired
+	private SysDeptMapper sysDeptMapper;
+	@Autowired
+	private SysUserMapper sysUserMapper = null;
+	@Autowired
+	private SysJobsMapper jobMapper = null;
+	@Autowired
+	private SysDeptMapper deptMapper = null;
+	@Autowired
+	private DeptService deptService = null;
+	@Autowired
+	private PushService pushService;
+	@Autowired
+	private JwNoticeMapper noticeMapper;
+	@Autowired
+	private SysAuditRecordMapper sysAuditRecordMapper;
+	@Autowired
+	private StringRedisTemplate stringRedisTemplate;
+	@Autowired
+	private SysUserLogMapper sysUserLogMapper;
+	@Autowired
+	private SysUserAuditMapper sysUserAuditMapper;
+	@Autowired
+	private AreaService areaService;
+	@Autowired
+	private UserInfoMapper userInfoMapper;
+	@Autowired
+	private SysLogsLoginMapper sysLogsLoginMapper;
+	@Autowired
+	private ToDoService toDoService;
+	private ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()); 
+	
+	public List<SysUser> queryUserList(SysUser user, Page page,String keyword){
+		SysUserExample example = new SysUserExample();
+		Criteria c = example.createCriteria();
+		Criteria c1 = example.createCriteria();
+		c.andTypeNotEqualTo(CommonDict.USER_TYPE_SUPER_ADMIN) ;
+		c1.andTypeNotEqualTo(CommonDict.USER_TYPE_SUPER_ADMIN) ;
+		c.andIsUseableEqualTo(1);
+		c1.andIsUseableEqualTo(1);
+		if(!StringUtils.isEmpty(user.getStatus())){
+			c.andStatusEqualTo(user.getStatus());
+			c1.andStatusEqualTo(user.getStatus());
+		}
+		if(!StringUtils.isEmpty(user.getIsUseable())){
+			c.andIsUseableEqualTo(user.getIsUseable());
+			c1.andIsUseableEqualTo(user.getIsUseable());
+		}else{
+			//默认查有用的用户
+			c.andIsUseableEqualTo(1);
+			c1.andIsUseableEqualTo(1);
+		}
+		if(!StringUtils.isEmpty(user.getAuth())){
+			c.andAuthIn(Arrays.asList(user.getAuth().split(",")));
+			c1.andAuthIn(Arrays.asList(user.getAuth().split(",")));
+		}
+		if(!StringUtils.isEmpty(user.getType())){
+			c.andTypeIn(Arrays.asList(user.getType().split(",")));
+			c1.andTypeIn(Arrays.asList(user.getType().split(",")));
+		}
+		if(!StringUtils.isEmpty(user.getId()) ){
+			List<String> userIds = this.queryManageUserIds(user.getId());
+			c.andIdIn(userIds);
+			c1.andIdIn(userIds);
+		}
+		if(!StringUtils.isEmpty(keyword)){
+			c.andPhoneLike("%"+keyword+"%");
+			c1.andRealnameLike("%"+keyword+"%");
+			example.or(c1);
+		}
+		
+		if(page != null){
+			int totalCount = sysUserMapper.countByExample(example);
+			page.setTotalCount(totalCount);
+			example.setOffset(page.getOffset());
+			example.setLimit(page.getPageSize());
+			example.setOrderByClause(page.getSortby());
+		}
+		
+		
+		return sysUserMapper.selectByExample(example);
+	}
+	
+	public List<SysUser> queryUserList(String ... userIds){
+		if(userIds != null && userIds.length > 0){
+			SysUserExample exa = new SysUserExample();
+			exa.createCriteria().andIdIn(Arrays.asList(userIds));
+			return sysUserMapper.selectByExample(exa);
+		}else{
+			return new ArrayList<>();
+		}
+		
+	}
+	
+	public SysUser queryUser(String userId){
+		return  sysUserMapper.selectByPrimaryKey(userId);
+	}
+	
+	public SysUser getUserById(String userId){
+		return this.queryUser(userId);
+	}
+	public void updateUserInfo(String userId,SysUser user){
+		FuncTool.fillUpdater(user, userId);
+		sysUserMapper.updateByPrimaryKeySelective(user);
+	}
+	
+	public List<String> getGetuiCidsByUids(List<String> uidlist) {
+		SysUserExample example = new SysUserExample();
+        example.createCriteria().andIdIn(uidlist);
+        List<SysUser> users = sysUserMapper.selectByExample(example);
+        List<String> cids = new ArrayList<>();
+        for (SysUser user : users) {
+            if (user.getGtCode() != null)
+                cids.add(user.getGtCode());
+        }
+        return  cids;
+    }
+	
+	public List<SysUser> queryPoliceByDeptId(String deptid, Page p){
+		return queryPoliceByDeptId(deptid, 2, p);
+	}
+	
+	public List<SysUser> queryPoliceByDeptId(String deptid, int isOnline, Page p){
+		SysUserExample example = new SysUserExample();
+		Criteria cr = example.createCriteria();
+		cr.andDeptIdEqualTo(deptid).andTypeEqualTo(CommonDict.USER_TYPE_BACK_USER).andAuthEqualTo(CommonDict.USER_AUTH_AUTHED);
+        if(isOnline < 2){
+        	cr.andIsOnlineEqualTo(isOnline);
+        }
+        if(p != null){
+            example.setOffset(p.getOffset());
+            example.setLimit(p.getPageSize());	
+        }
+        if(p ==  null || StringUtils.isEmpty(p.getSortby()) ){
+        	example.setOrderByClause(" is_online desc , CONVERT(realname USING gbk)");
+        }else{
+        	example.setOrderByClause(p.getSortby());
+        }
+        return sysUserMapper.selectByExample(example);
+	}
+	
+	public List<SysJobs> queryJobsByIds(List<String> jobsId){
+		if(jobsId == null || jobsId.size() == 0){
+			return new ArrayList<>();
+		}
+		SysJobsExample example = new SysJobsExample();
+		example.createCriteria().andIdIn(jobsId);
+		return jobMapper.selectByExample(example);
+	}
+	
+	public List<SysDeptWithBLOBs> queryUserSubDept(String uid){
+		SysUser sysUser = this.getUserById(uid);
+		return deptService.getDeptSubDept(deptService.getDeptById(sysUser.getDeptId()));
+	}
+	
+	public List<SysDeptWithBLOBs> queryUserSubDept(SysUser sysUser){
+		return deptService.getDeptSubDept(deptService.getDeptById(sysUser.getDeptId()));
+	}
+	
+	public void updateOnlineUser(List<SysUser> onlineUsers){
+		SysUserExample example = new SysUserExample();
+		example.createCriteria().andIsOnlineEqualTo(1);
+		SysUser user = new SysUser();
+		user.setIsOnline(0);
+		user.setPosition("");
+		sysUserMapper.updateByExampleSelective(user, example);
+		
+		for(SysUser onlineUser: onlineUsers){
+			example = new SysUserExample();
+			example.createCriteria().andIdEqualTo(onlineUser.getId());
+			user.setIsOnline(1);
+			user.setPosition(onlineUser.getPosition());
+			sysUserMapper.updateByExampleSelective(user, example);
+		}
+	}
+	
+	/**
+	 * 
+	 * @param uid
+	 * @param auth
+	 * @param authMsg
+	 * @param id
+	 */
+	public void updateAuthStatus(String uid ,String auth,String authMsg, String id){
+		SysUser su = sysUserMapper.selectByPrimaryKey(id);
+		SysUser user = new SysUser();
+		if(su.getVersion()!=null &&
+				(CommonDict.USER_AUTH_AUTHED.equals(auth) 
+						|| CommonDict.USER_AUTH_AUTHFAIL.equals(auth))){//被驳回后，要求显示提交资料时填写的姓名 2017.4.18
+			SysUserAuditExample exa = new SysUserAuditExample();
+			exa.createCriteria().andUserIdEqualTo(id).andVersionEqualTo(su.getVersion());
+			List<SysUserAudit> list = sysUserAuditMapper.selectByExample(exa);
+			SysUserAudit sua = null;
+			if(!CollectionUtils.isEmpty(list)){
+				sua = list.get(0);
+			}
+			if(sua!=null){
+				BeanUtils.copyProperties(sua, user);
+			}
+		}
+		user.setId(id);
+		user.setAuth(auth);
+		user.setAuthMsg(authMsg);
+		FuncTool.fillUpdater(user, uid);
+		user.setAuditedTime(new Date());
+		user.setAuthtorId(uid);
+		
+		/*SysAuditRecordExample arexample = new SysAuditRecordExample();
+		arexample.createCriteria().andApplyIdEqualTo(id);
+		arexample.setOrderByClause(" audit_time desc");
+		List<SysAuditRecordWithBLOBs>  listAudit = sysAuditRecordMapper.selectByExampleWithBLOBs(arexample);
+		if(listAudit.size() > 0){
+			user.setRealname(listAudit.get(0).getRealname());
+		}*/
+		sysUserMapper.updateByPrimaryKeySelective(user);
+		
+		pushService.createAuthMessage(auth, user);
+		
+		
+	
+	}
+	
+	@Transactional
+	public void auth(SysUserAudit user, SysUser old){
+		//更新认证状态
+		SysUser su = new SysUser();
+//		BeanUtils.copyProperties(user, su);
+		su.setAuth("authing");
+		su.setAuthMsg("认证中");
+		su.setId(old.getId());
+		su.setAuthingTime(new Date());
+		su.setUpdaterId(old.getId());
+		su.setUpdateTime(new Date());
+		su.setVersion(old.getVersion()==null?1:(old.getVersion().intValue()+1));
+		su.setRealname(old.getPhone());//真实姓名改为手机号
+		sysUserMapper.updateByPrimaryKeySelective(su);
+		
+		user.setId(FuncTool.createUUID());
+		user.setUserId(old.getId());
+		user.setVersion(su.getVersion());
+		user.setCreateTime(new Date());
+		sysUserAuditMapper.insertSelective(user);
+		
+		//插入审核记录
+		SysAuditRecordWithBLOBs saw = new SysAuditRecordWithBLOBs();
+		saw.setId(FuncTool.createUUID());
+		saw.setApplyId(old.getId());
+		saw.setAuditTime(new Date());
+		saw.setRemark("");
+		saw.setRealname(user.getRealname());
+		saw.setPolicemanCode(user.getPolicemanCode());
+		saw.setAddress(user.getAddress());
+		saw.setStatus(0);
+		if(old != null && old.getStatus() != null){
+			saw.setStatus(old.getStatus());
+		}
+		saw.setCurStatus(CommonDict.AUDIT_STATUS_USER_CHECKING);
+		saw.setType(CommonDict.AUDIT_TYPE_USERCHECK);
+		saw.setUserId(old.getId());
+		sysAuditRecordMapper.insertSelective(saw);
+		
+		/*//真实姓名改为手机号
+		SysUser su = new SysUser();
+		su.setId(user.getId());
+		su.setRealname(old.getPhone());
+		sysUserMapper.updateByPrimaryKeySelective(su);*/
+		
+		SysUser suer = sysUserMapper.selectByPrimaryKey(old.getId());
+		SysDeptWithBLOBs dept = deptService.getDeptById(suer.getDeptId());
+		if (dept != null && !StringUtils.isEmpty(dept.getCode())) {
+			JSONObject json=new JSONObject();
+			json.put("category", "authentication");
+			SysDeptExample deptExample = new SysDeptExample();
+			deptExample.createCriteria()
+					.andCodeEqualTo(dept.getCode().length() > 15 ? dept.getCode().substring(0, 15) : dept.getCode());
+			List<SysDeptWithBLOBs> blobs = sysDeptMapper.selectByExampleWithBLOBs(deptExample);
+			List<String> userIds = deptService.queryManageUserIdsByDeptId(blobs.get(0).getId());
+			for (int i = 0; i < userIds.size(); i++) {
+				json.put("num", toDoService.queryToDoListNum(userIds.get(i)));
+				pushService.pushToDoMessage(userIds.get(i),json.toString());
+			}
+		}
+		
+	}
+	
+	/**
+	 * 返回某个用户能够查看管理的人员ID列表
+	 * @param uid
+	 * @return
+	 */
+	public List<String> queryManageUserIds(String uid){
+		List<String> list = new ArrayList<>();
+		SysUser user = sysUserMapper.selectByPrimaryKey(uid);
+		if(user.getDeptId() == null){
+			list.add("1");
+			return list;
+		}else{
+			String code = this.deptMapper.selectByPrimaryKey(user.getDeptId()).getCode();
+			if(code == null){
+				list.add("1");
+				return list;
+			}
+			SysDeptExample example = new SysDeptExample();
+			example.createCriteria().andCodeLike(code+"%");
+			List<SysDeptWithBLOBs> listDept = deptMapper.selectByExampleWithBLOBs(example);
+			List<String> deptIds = new ArrayList<>();
+			deptIds.add(user.getDeptId());
+			for(SysDeptWithBLOBs item : listDept){
+				deptIds.add(item.getId());
+			}
+			SysUserExample userExample = new SysUserExample();
+			userExample.createCriteria().andDeptIdIn(deptIds);
+			List<SysUser> listUser = this.sysUserMapper.selectByExample(userExample);
+			for(SysUser item : listUser){
+				list.add(item.getId());
+			}
+			return list;
+		}
+	}
+	
+	/**
+	 * 第一期暂考虑居民上报的情况，后面优化身份切换中公安类型人员报警如何关联处警人
+	 * @param deptId
+	 * @return
+	 */
+	public String getSuperiorDeptIdByUid(String deptId){
+		String superiorDeptId;
+		SysDeptWithBLOBs dept=deptMapper.selectByPrimaryKey(deptId);
+		//警务室发送给派出所
+		if("公安".equals(dept.getType()) && dept.getLevel() <= 5){
+			superiorDeptId=deptId;
+		}else{
+			superiorDeptId=dept.getParentId();
+		}
+		return superiorDeptId;
+	}
+
+	/**
+	 * 根据手机号获取用户
+	 * @param phone
+	 * @return
+	 */
+	public SysUser queryUserByPhone(String phone){
+		if(org.apache.commons.lang.StringUtils.isBlank(phone)) return null;
+		SysUserExample exa = new SysUserExample();
+		exa.createCriteria().andPhoneEqualTo(phone).andIsUseableEqualTo(1);
+		List<SysUser> list = sysUserMapper.selectByExample(exa);
+		if(CollectionUtils.isEmpty(list)) return null;
+		return list.get(0);
+	}
+	
+	/**
+	 * 新增用户
+	 * @param user
+	 * @return
+	 */
+	public SysUser addUser(SysUser user){
+		SysUser sysUser = new SysUser();
+		sysUser.setId(FuncTool.createUUID());
+		user.setCreateTime(new Date());
+		user.setCreatorId("system");
+		user.setUpdateTime(new Date());
+		user.setUpdaterId("system");
+		BeanUtils.copyProperties(user, sysUser);
+		entryptPassword(sysUser);
+		sysUserMapper.insertSelective(sysUser);
+		return sysUser;
+	}
+	
+	/**
+	 * 对用户进行密码加密
+	 * @param user
+	 */
+	private void entryptPassword(SysUser user){
+		byte[] saltBytes = Digests.generateSalt(SALT_SIZE);
+		String salt = Encodes.encodeHex(saltBytes);
+		user.setSalt(salt);
+		if(org.apache.commons.lang.StringUtils.isBlank(user.getPassword())){
+			user.setPassword(MD5.encryptionMD5(initPwd));
+		}
+		String rawPass = user.getPassword();
+		String encPass = new SHA1CredentialsDigest().digest(rawPass, saltBytes);
+		user.setPassword(encPass);
+	}
+	
+	public void updatePassword(SysUser user){
+		entryptPassword(user);
+		user.setUpdaterId("system");
+		user.setUpdateTime(new Date());
+		sysUserMapper.updateByPrimaryKeySelective(user);
+	}
+	
+	public boolean checkPassword(SysUser user , String rawPassword){
+		return new SHA1CredentialsDigest().matches(user.getPassword(), rawPassword, getSaltBytes(user.getSalt()));
+	}
+	
+	public byte[] getSaltBytes(String salt) {
+		if (org.apache.commons.lang.StringUtils.isNotBlank(salt)) {
+			return Encodes.decodeHex(salt);
+		} else {
+			return null;
+		}
+	}
+	 
+	
+	public UserInfo getUserInfoById(String uid, boolean needDept, boolean needJobs){
+		UserInfo user = new UserInfo();
+		SysUser su = sysUserMapper.selectByPrimaryKey(uid);
+		//剔除密码
+		su.setPassword(null);
+		BeanUtils.copyProperties(su, user);
+		if(needDept){
+			SysDeptWithBLOBs dept = deptMapper.selectByPrimaryKey(su.getDeptId());
+			user.setDept(dept);
+		}
+		if(needJobs){
+			SysJobs jobs = jobMapper.selectByPrimaryKey(su.getJobsId());
+			user.setJobs(jobs);
+		}
+		return user;
+	}
+	
+	/**
+	 * 登录获取用户信息
+	 * @param userId
+	 * @param needJobs
+	 * @param needDept
+	 * @param needArea
+	 * @param needFullAddr
+	 * @param needYuntu
+	 * @param needVerify
+	 * @param needToken
+	 * @return
+	 */
+	public Map<String, Object> login(String userId, boolean needJobs, boolean needDept, boolean needArea, boolean needFullAddr, 
+													boolean needYuntu, boolean needVerify, boolean needToken){
+		Map<String, Object> data = new HashMap<String, Object>(); 
+		log.info("user id : {}", userId);
+		
+		UserInfo su = getUserInfoById(userId, needDept, needJobs);
+		DtoUserInfoResponse userResp = new DtoUserInfoResponse(su);
+		if(needJobs){
+			SysJobs jobsResp = new SysJobs();
+			FuncTool.copyPropertiesExt(su.getJobs(), jobsResp);
+			userResp.setJobs(jobsResp);
+		}
+		if(needDept){
+			DtoDeptResponse deptResp = new DtoDeptResponse();
+			FuncTool.copyPropertiesExt(su.getDept(), deptResp);
+			userResp.setDept(deptResp);
+			//查询区域信息
+			if(needArea&&org.apache.commons.lang.StringUtils.isNotBlank(deptResp.getAreaId())){
+				DtoAreaResponse areaResp = new DtoAreaResponse();
+				SysArea area = areaService.selectByPrimaryKey(deptResp.getAreaId());
+				FuncTool.copyPropertiesExt(area, areaResp);
+				deptResp.setArea(areaResp);
+			}
+			if(needFullAddr){
+				userResp.setFullAddr(areaService.getFullAreaName(deptResp.getAreaId()));
+			}
+		}
+		
+		data.put("user", userResp);
+		
+		if(needToken){
+			//获取token 记录缓存
+			String token = TokenUtil.createToken(su.getId());
+			stringRedisTemplate.opsForValue().set(Constants.CACHE_API_TOKEN + "_" + token, userId, 30, TimeUnit.DAYS);
+			data.put("token", token);
+		}
+		
+		if(needYuntu){
+			data.put("yuntu", YunTuApi.getYuntu());
+		}
+		
+		if(needVerify){
+			VerifyInfo vi = new VerifyInfo();
+			vi.setPhone(su.getPhone());
+			if(su.getVersion()!=null){
+				SysUserAudit sua = getSysUserAudit(userId, su.getVersion());
+				if(sua!=null){
+					vi.setAddress(sua.getAddress());
+					vi.setPolicemanCode(sua.getPolicemanCode());
+					vi.setRealname(sua.getRealname());
+					vi.setCardcode(sua.getIdCard());
+					vi.setCardImg1(sua.getIdcardImg1());
+					vi.setCardImg2(sua.getIdcardImg2());
+				}
+			}
+			data.put("verifyInfo", vi);
+		}
+		//记录日志
+		logUserAction(userId, UserActionEnum.Login);
+		
+		return data;
+	}
+	
+	public Map<String, Object> loginUpdate(SysUser user) throws ClientProtocolException, IOException {
+		log.info("user id : {}", user.getId());
+		//记录登录日志
+		SysLogsLogin sll = new SysLogsLogin();
+		sll.setCellphone(user.getPhone());
+		sll.setCreateTime(new Date());
+		sll.setId(FuncTool.createUUID());
+		JSONObject jo = new JSONObject();
+		jo.put("GtCode", user.getGtCode());
+		jo.put("DeviceId", user.getDeviceId());
+		jo.put("DeviceToken", user.getDeviceToken());
+		jo.put("DeviceType", user.getDeviceType());
+		sll.setInfo(jo.toString());
+		sysLogsLoginMapper.insertSelective(sll);
+		
+		//推送登录踢人消息
+		SysUser oldUser = this.getUserById(user.getId());
+		String oldGuiCode  = oldUser.getGtCode();
+		String oldDeviceToken = oldUser.getDeviceToken();
+		boolean kickoff = false;
+		//ios 登录
+		if(!StringUtils.isEmpty(user.getDeviceToken()) ){
+			if(oldDeviceToken!=null && !user.getDeviceToken().equals(oldDeviceToken) || "android".equals(oldUser.getDeviceType())){
+				kickoff = true;
+			}
+		}
+		//android 登录
+		if(!StringUtils.isEmpty(user.getGtCode()) ){
+			if(oldGuiCode!=null && !user.getGtCode().equals(oldGuiCode) || "ios".equals(oldUser.getDeviceType())){
+				kickoff = true;
+			}
+		}
+		if(kickoff){
+			pushService.createCommonMessage(Arrays.asList(user.getId()),PushMessageType.Kickoff,"异地登录","异地登录",user.getId(),null);
+		}
+		
+		if(org.apache.commons.lang.StringUtils.isNotBlank(user.getGtCode())){
+			SysUserExample exa = new SysUserExample();
+			exa.createCriteria().andGtCodeEqualTo(user.getGtCode());
+			List<SysUser> list = sysUserMapper.selectByExample(exa);
+			if(!CollectionUtils.isEmpty(list)){
+				List<String> ids = new ArrayList<>();
+				for(SysUser su : list){
+					if(su.getId().equals(user.getId()))
+						continue;
+					ids.add(su.getId());
+				}
+				if(!CollectionUtils.isEmpty(ids)){
+					sysUserMapper.removeGtCodeByIds(ids);
+				}
+			}
+		}
+		
+		if(org.apache.commons.lang.StringUtils.isBlank(user.getRlyCode())){
+			user.setRlyCode(SmsUtil.createSubAccount(user.getPhone()));
+		}
+		if(org.apache.commons.lang.StringUtils.isBlank(user.getYtCode())){
+			Map<String,String> um = new HashMap<>(); 
+			um.put("id", user.getId());
+			um.put("username", user.getUserName());
+			user.setYtCode(YunTuApi.dataCreate(um));
+		}
+		user.setLastLoginTime(new Date());
+		user.setIsOnline(1);
+		log.info("updateByPrimaryKeySelective time {}", new Date().getTime());
+		sysUserMapper.updateByPrimaryKeySelective(user);
+		
+		return login(user.getId(), true, true, true, true, true, true, true);
+	}
+	
+	public void loginOut(String token){
+		String uid = stringRedisTemplate.opsForValue().get(Constants.CACHE_API_TOKEN + "_" + token);
+		if(org.apache.commons.lang.StringUtils.isBlank(uid)) return;
+		stringRedisTemplate.delete(Constants.CACHE_API_TOKEN + "_" + token);
+		SysUser user = new SysUser();
+		user.setDeviceToken("");
+		user.setId(uid);
+		sysUserMapper.updateByPrimaryKeySelective(user);
+		logUserAction(uid, UserActionEnum.Logout);
+	}
+	
+	public String getUidByToken(String token){
+		return stringRedisTemplate.opsForValue().get(Constants.CACHE_API_TOKEN + "_" + token);
+	}
+	
+	public SysAuditRecordWithBLOBs queryUserAudit(String uid){
+		SysAuditRecordExample arexample = new SysAuditRecordExample();
+		arexample.createCriteria().andApplyIdEqualTo(uid);
+		arexample.setOrderByClause(" audit_time desc");
+		List<SysAuditRecordWithBLOBs>  listAudit = sysAuditRecordMapper.selectByExampleWithBLOBs(arexample);
+		if(listAudit.size() > 0){
+			return listAudit.get(0);
+		}
+		return null;
+	}
+	
+	/**
+	 * 记录用户行为
+	 * @param uid
+	 * @param action
+	 */
+	public void logUserAction(final String uid, final UserActionEnum ua){
+		executor.submit(new Runnable() {
+			@Override
+			public void run() {
+				SysUserLog sul = new SysUserLog();
+				sul.setId(FuncTool.createUUID());
+				sul.setUserId(uid);
+				sul.setAction(ua.getCode());
+				sul.setCreateTime(new Date());
+				sysUserLogMapper.insertSelective(sul);
+			}
+		});
+	}
+	
+	public List<SysUser> queryAuthedUsersByDepts(List<SysDeptWithBLOBs> listDept){
+		List<String> deptIds = new ArrayList<>();
+		for(SysDeptWithBLOBs item : listDept){
+			deptIds.add(item.getId());
+		}
+		SysUserExample example = new SysUserExample();
+		example.createCriteria().andDeptIdIn(deptIds).andIsUseableEqualTo(1).andAuthEqualTo(CommonDict.USER_AUTH_AUTHED).andTypeNotEqualTo(CommonDict.USER_TYPE_SUPER_ADMIN) ;
+		example.setOrderByClause("  CONVERT(realname USING gbk )");
+		return sysUserMapper.selectByExample(example);
+	}
+	
+	/**
+	 * 根据部门列表查询总人数
+	 * @param deptIds
+	 * @return
+	 */
+	public int countByDeptIds(List<SysDeptWithBLOBs> depts){
+		if(depts == null || depts.size() == 0){
+			return 0;
+		}
+		List<String> deptIds = new ArrayList<String>();
+		for(SysDeptWithBLOBs dept:depts){
+			deptIds.add(dept.getId());
+		}
+		SysUserExample example = new SysUserExample();
+		example.createCriteria()
+			.andDeptIdIn(deptIds)
+			.andTypeEqualTo("backUser")
+			.andAuthEqualTo("authed")
+			.andIsUseableEqualTo(1);//已认证未删除的总人数
+		return sysUserMapper.countByExample(example);
+	}
+	
+	public Map<String, Object> getUserAuditById(String userId){
+		Map<String, Object> data = new HashMap<String, Object>(); 
+		log.info("user id : {}", userId);
+		SysUser su = sysUserMapper.selectByPrimaryKey(userId);
+		SysUserAudit ua = null;
+		if(su.getVersion()==null){
+			ua = new SysUserAudit();
+			BeanUtils.copyProperties(su, ua);
+		}else{
+			ua = getSysUserAudit(userId, su.getVersion());
+			if(ua == null){
+				return null;
+			}
+		}
+		
+		DtoUserInfoResponse userResp = new DtoUserInfoResponse();
+		userResp.setAddress(ua.getAddress());
+		userResp.setAuth(su.getAuth());
+		userResp.setCardcode(ua.getIdCard());
+		userResp.setCardImg1(ua.getIdcardImg1());
+		userResp.setCardImg2(ua.getIdcardImg2());
+		userResp.setCurrAddress(ua.getCurrAddress());
+		userResp.setDeviceID(su.getDeviceId());
+		userResp.setEmail(ua.getEmail());
+		userResp.setId(su.getId());
+		userResp.setImg(ua.getImg());
+		userResp.setLiveNow(ua.getLiveNow());
+		userResp.setPhone(ua.getPhone());
+		userResp.setPolicemanCode(ua.getPolicemanCode());
+		userResp.setRealname(ua.getRealname());
+		userResp.setLastLoginTime(su.getLastLoginTime() == null ? 0 : su.getLastLoginTime().getTime());
+		userResp.setStype(su.getType());
+		if(su.getIsUseable() != null && su.getIsUseable().intValue() == 1){
+			userResp.setUseable(true);
+		}else{
+			userResp.setUseable(false);
+		}
+		userResp.setType(su.getType());
+		userResp.setUsername(ua.getUserName());
+		
+		if(org.apache.commons.lang.StringUtils.isNotBlank(ua.getJobsId())){
+			SysJobs jobsResp = new SysJobs();
+			SysJobs jobs = jobMapper.selectByPrimaryKey(ua.getJobsId());
+			FuncTool.copyPropertiesExt(jobs, jobsResp);
+			userResp.setJobs(jobsResp);
+		}
+		
+		DtoDeptResponse deptResp = new DtoDeptResponse();
+		if(org.apache.commons.lang.StringUtils.isNotBlank(ua.getDeptId())){
+			SysDeptWithBLOBs dept = deptMapper.selectByPrimaryKey(ua.getDeptId());
+			FuncTool.copyPropertiesExt(dept, deptResp);
+			userResp.setDept(deptResp);
+		}
+		
+		//查询区域信息
+		if(org.apache.commons.lang.StringUtils.isNotBlank(deptResp.getAreaId())){
+			DtoAreaResponse areaResp = new DtoAreaResponse();
+			SysArea area = areaService.selectByPrimaryKey(deptResp.getAreaId());
+			FuncTool.copyPropertiesExt(area, areaResp);
+			deptResp.setArea(areaResp);
+			userResp.setFullAddr(areaService.getFullAreaName(deptResp.getAreaId()));
+		}
+		
+		data.put("user", userResp);
+		
+		data.put("yuntu", YunTuApi.getYuntu());
+		
+		return data;
+		
+	}
+	
+	public SysUserAudit getSysUserAudit(String userId, Integer version){
+		SysUserAuditExample exa = new SysUserAuditExample();
+		exa.createCriteria().andUserIdEqualTo(userId).andVersionEqualTo(version);
+		List<SysUserAudit> list = sysUserAuditMapper.selectByExample(exa);
+		SysUserAudit sua = null;
+		if(!CollectionUtils.isEmpty(list)){
+			sua = list.get(0);
+		}
+		return sua;
+	}
+	
+	public List<UserDto> queryUserAuditList(String deptCode, String keyword, Page page){
+		Map<String, Object> map = new HashMap<>();
+		map.put("deptCode", deptCode);
+		if(org.apache.commons.lang.StringUtils.isNotBlank(keyword)){
+			if(org.apache.commons.lang.StringUtils.isNumeric(keyword)){
+				//按手机号搜索
+				map.put("phone", keyword);
+			}else{
+				//按姓名搜索
+				map.put("realname", keyword);
+			}
+		}
+		int total = userInfoMapper.countUserAuditList(map);
+		page.setTotalCount(total);
+		map.put("offset", page.getOffset());
+		map.put("limit", page.getPageSize());
+		map.put("orderByClause", page.getSortby());
+		return userInfoMapper.getUserAuditList(map);
+	}
+	
+	/**
+	 * 查询派出所或警务室用户列表.
+	 * @param deptId
+	 * @return
+	 */
+	public List<SysUser> getPoliceUserList(String deptId){
+		Map<String, Object> map = new HashMap<>();
+		map.put("deptId", deptId);
+		return userInfoMapper.getPoliceUserList(map);
+	}
+	
+	public String getUnreadAlertId(String uid){
+		String deptId = queryUser(uid).getDeptId();
+		String news = stringRedisTemplate.boundValueOps(CommonDict.REDIS_ALERT_NEWS).get();
+		if (!StringUtils.isEmpty(news)) {
+			Map<String, Object> jo = JSONUtil.decodeJsonToMap(news);
+			if (jo.containsKey(deptId)) {
+				return ((String) jo.get(deptId)).split(",")[0];
+			}
+		}
+		return "";
+	}
+	public Integer queryUserAuditCount(Map<String, Object> map){
+		return   userInfoMapper.countUserAuditList(map);
+	}
+}

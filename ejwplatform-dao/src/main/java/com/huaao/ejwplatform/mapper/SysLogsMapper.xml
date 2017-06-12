@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.huaao.ejwplatform.mapper.SysLogsMapper" >
+  <resultMap id="BaseResultMap" type="com.huaao.ejwplatform.dao.SysLogs" >
+    <id column="id" property="id" jdbcType="VARCHAR" />
+    <result column="t_className" property="tClassname" jdbcType="VARCHAR" />
+    <result column="t_createTime" property="tCreatetime" jdbcType="TIMESTAMP" />
+    <result column="t_level" property="tLevel" jdbcType="VARCHAR" />
+    <result column="t_methodName" property="tMethodname" jdbcType="VARCHAR" />
+    <result column="t_msg" property="tMsg" jdbcType="VARCHAR" />
+    <result column="t_userName" property="tUsername" jdbcType="VARCHAR" />
+    <result column="t_remoteAddr" property="tRemoteaddr" jdbcType="VARCHAR" />
+    <result column="t_uri" property="tUri" jdbcType="VARCHAR" />
+    <result column="t_params" property="tParams" jdbcType="VARCHAR" />
+    <result column="t_userId" property="tUserid" jdbcType="VARCHAR" />
+  </resultMap>
+  <sql id="Example_Where_Clause" >
+    <where >
+      <foreach collection="oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Update_By_Example_Where_Clause" >
+    <where >
+      <foreach collection="example.oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Base_Column_List" >
+    id, t_className, t_createTime, t_level, t_methodName, t_msg, t_userName, t_remoteAddr, 
+    t_uri, t_params, t_userId
+  </sql>
+  <select id="selectByExample" resultMap="BaseResultMap" parameterType="com.huaao.ejwplatform.dao.SysLogsExample" >
+    select
+    <if test="distinct" >
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    from sys_logs
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null" >
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null" >
+      <if test="offset != null" >
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null" >
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.String" >
+    select 
+    <include refid="Base_Column_List" />
+    from sys_logs
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String" >
+    delete from sys_logs
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <delete id="deleteByExample" parameterType="com.huaao.ejwplatform.dao.SysLogsExample" >
+    delete from sys_logs
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </delete>
+  <insert id="insert" parameterType="com.huaao.ejwplatform.dao.SysLogs" >
+    insert into sys_logs (id, t_className, t_createTime, 
+      t_level, t_methodName, t_msg, 
+      t_userName, t_remoteAddr, t_uri, 
+      t_params, t_userId)
+    values (#{id,jdbcType=VARCHAR}, #{tClassname,jdbcType=VARCHAR}, #{tCreatetime,jdbcType=TIMESTAMP}, 
+      #{tLevel,jdbcType=VARCHAR}, #{tMethodname,jdbcType=VARCHAR}, #{tMsg,jdbcType=VARCHAR}, 
+      #{tUsername,jdbcType=VARCHAR}, #{tRemoteaddr,jdbcType=VARCHAR}, #{tUri,jdbcType=VARCHAR}, 
+      #{tParams,jdbcType=VARCHAR}, #{tUserid,jdbcType=VARCHAR})
+  </insert>
+  <insert id="insertSelective" parameterType="com.huaao.ejwplatform.dao.SysLogs" >
+    insert into sys_logs
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        id,
+      </if>
+      <if test="tClassname != null" >
+        t_className,
+      </if>
+      <if test="tCreatetime != null" >
+        t_createTime,
+      </if>
+      <if test="tLevel != null" >
+        t_level,
+      </if>
+      <if test="tMethodname != null" >
+        t_methodName,
+      </if>
+      <if test="tMsg != null" >
+        t_msg,
+      </if>
+      <if test="tUsername != null" >
+        t_userName,
+      </if>
+      <if test="tRemoteaddr != null" >
+        t_remoteAddr,
+      </if>
+      <if test="tUri != null" >
+        t_uri,
+      </if>
+      <if test="tParams != null" >
+        t_params,
+      </if>
+      <if test="tUserid != null" >
+        t_userId,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="tClassname != null" >
+        #{tClassname,jdbcType=VARCHAR},
+      </if>
+      <if test="tCreatetime != null" >
+        #{tCreatetime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="tLevel != null" >
+        #{tLevel,jdbcType=VARCHAR},
+      </if>
+      <if test="tMethodname != null" >
+        #{tMethodname,jdbcType=VARCHAR},
+      </if>
+      <if test="tMsg != null" >
+        #{tMsg,jdbcType=VARCHAR},
+      </if>
+      <if test="tUsername != null" >
+        #{tUsername,jdbcType=VARCHAR},
+      </if>
+      <if test="tRemoteaddr != null" >
+        #{tRemoteaddr,jdbcType=VARCHAR},
+      </if>
+      <if test="tUri != null" >
+        #{tUri,jdbcType=VARCHAR},
+      </if>
+      <if test="tParams != null" >
+        #{tParams,jdbcType=VARCHAR},
+      </if>
+      <if test="tUserid != null" >
+        #{tUserid,jdbcType=VARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <select id="countByExample" parameterType="com.huaao.ejwplatform.dao.SysLogsExample" resultType="java.lang.Integer" >
+    select count(*) from sys_logs
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </select>
+  <update id="updateByExampleSelective" parameterType="map" >
+    update sys_logs
+    <set >
+      <if test="record.id != null" >
+        id = #{record.id,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tClassname != null" >
+        t_className = #{record.tClassname,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tCreatetime != null" >
+        t_createTime = #{record.tCreatetime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="record.tLevel != null" >
+        t_level = #{record.tLevel,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tMethodname != null" >
+        t_methodName = #{record.tMethodname,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tMsg != null" >
+        t_msg = #{record.tMsg,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tUsername != null" >
+        t_userName = #{record.tUsername,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tRemoteaddr != null" >
+        t_remoteAddr = #{record.tRemoteaddr,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tUri != null" >
+        t_uri = #{record.tUri,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tParams != null" >
+        t_params = #{record.tParams,jdbcType=VARCHAR},
+      </if>
+      <if test="record.tUserid != null" >
+        t_userId = #{record.tUserid,jdbcType=VARCHAR},
+      </if>
+    </set>
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExample" parameterType="map" >
+    update sys_logs
+    set id = #{record.id,jdbcType=VARCHAR},
+      t_className = #{record.tClassname,jdbcType=VARCHAR},
+      t_createTime = #{record.tCreatetime,jdbcType=TIMESTAMP},
+      t_level = #{record.tLevel,jdbcType=VARCHAR},
+      t_methodName = #{record.tMethodname,jdbcType=VARCHAR},
+      t_msg = #{record.tMsg,jdbcType=VARCHAR},
+      t_userName = #{record.tUsername,jdbcType=VARCHAR},
+      t_remoteAddr = #{record.tRemoteaddr,jdbcType=VARCHAR},
+      t_uri = #{record.tUri,jdbcType=VARCHAR},
+      t_params = #{record.tParams,jdbcType=VARCHAR},
+      t_userId = #{record.tUserid,jdbcType=VARCHAR}
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByPrimaryKeySelective" parameterType="com.huaao.ejwplatform.dao.SysLogs" >
+    update sys_logs
+    <set >
+      <if test="tClassname != null" >
+        t_className = #{tClassname,jdbcType=VARCHAR},
+      </if>
+      <if test="tCreatetime != null" >
+        t_createTime = #{tCreatetime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="tLevel != null" >
+        t_level = #{tLevel,jdbcType=VARCHAR},
+      </if>
+      <if test="tMethodname != null" >
+        t_methodName = #{tMethodname,jdbcType=VARCHAR},
+      </if>
+      <if test="tMsg != null" >
+        t_msg = #{tMsg,jdbcType=VARCHAR},
+      </if>
+      <if test="tUsername != null" >
+        t_userName = #{tUsername,jdbcType=VARCHAR},
+      </if>
+      <if test="tRemoteaddr != null" >
+        t_remoteAddr = #{tRemoteaddr,jdbcType=VARCHAR},
+      </if>
+      <if test="tUri != null" >
+        t_uri = #{tUri,jdbcType=VARCHAR},
+      </if>
+      <if test="tParams != null" >
+        t_params = #{tParams,jdbcType=VARCHAR},
+      </if>
+      <if test="tUserid != null" >
+        t_userId = #{tUserid,jdbcType=VARCHAR},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.SysLogs" >
+    update sys_logs
+    set t_className = #{tClassname,jdbcType=VARCHAR},
+      t_createTime = #{tCreatetime,jdbcType=TIMESTAMP},
+      t_level = #{tLevel,jdbcType=VARCHAR},
+      t_methodName = #{tMethodname,jdbcType=VARCHAR},
+      t_msg = #{tMsg,jdbcType=VARCHAR},
+      t_userName = #{tUsername,jdbcType=VARCHAR},
+      t_remoteAddr = #{tRemoteaddr,jdbcType=VARCHAR},
+      t_uri = #{tUri,jdbcType=VARCHAR},
+      t_params = #{tParams,jdbcType=VARCHAR},
+      t_userId = #{tUserid,jdbcType=VARCHAR}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+</mapper>

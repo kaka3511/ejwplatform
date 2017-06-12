@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!--# include file="static/include.shtml" -->
+<script>
+	
+	$(function() {
+		var json = {
+			"mixnick_get_response" : {
+				"nick" : "101NufynDYcbjf2cFQDd62j8M\/mjtyz6RoxQ2OL1c0e\/Bc="
+			}
+		};
+		$('#code-view').html(syntaxHighlight(json));
+	});
+</script>
+</head>
+
+<body>
+	<h1 style="font-size: 20px">auth/login (用户登录)</h1>
+	<div class="descript">将用户名转换成混淆后的值，为店铺前台模块授权改造提供数据订正接口</div>
+
+	<h2 style="font-size: 20px">请求参数</h2>
+	<table class="table table-striped descript">
+		<thead>
+			<tr>
+				<th>名称</th>
+				<th>类型</th>
+				<th>是否必须</th>
+				<th>示例</th>
+				<th>描述</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td>nick</td>
+				<td>String</td>
+				<td>必须</td>
+				<td>tbtest001</td>
+				<td>用户名</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<h1 style="font-size: 20px">响应参数</h1>
+	<pre id="code-view"></pre>
+</body>
+</html>
+
+
+
+
+

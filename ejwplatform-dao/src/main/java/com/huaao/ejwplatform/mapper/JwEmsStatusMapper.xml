@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.huaao.ejwplatform.mapper.JwEmsStatusMapper">
+  <resultMap id="BaseResultMap" type="com.huaao.ejwplatform.dao.JwEmsStatus">
+    <id column="id" jdbcType="VARCHAR" property="id" />
+    <result column="mail_num" jdbcType="VARCHAR" property="mailNum" />
+    <result column="serial_number" jdbcType="VARCHAR" property="serialNumber" />
+    <result column="procdate" jdbcType="VARCHAR" property="procdate" />
+    <result column="proctime" jdbcType="VARCHAR" property="proctime" />
+    <result column="org_full_name" jdbcType="VARCHAR" property="orgFullName" />
+    <result column="action" jdbcType="VARCHAR" property="action" />
+    <result column="proper_delivery" jdbcType="VARCHAR" property="properDelivery" />
+    <result column="not_proper_delivery" jdbcType="VARCHAR" property="notProperDelivery" />
+    <result column="description" jdbcType="VARCHAR" property="description" />
+    <result column="effect" jdbcType="INTEGER" property="effect" />
+  </resultMap>
+  <sql id="Example_Where_Clause">
+    <where>
+      <foreach collection="oredCriteria" item="criteria" separator="or">
+        <if test="criteria.valid">
+          <trim prefix="(" prefixOverrides="and" suffix=")">
+            <foreach collection="criteria.criteria" item="criterion">
+              <choose>
+                <when test="criterion.noValue">
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue">
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue">
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue">
+                  and ${criterion.condition}
+                  <foreach close=")" collection="criterion.value" item="listItem" open="(" separator=",">
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Update_By_Example_Where_Clause">
+    <where>
+      <foreach collection="example.oredCriteria" item="criteria" separator="or">
+        <if test="criteria.valid">
+          <trim prefix="(" prefixOverrides="and" suffix=")">
+            <foreach collection="criteria.criteria" item="criterion">
+              <choose>
+                <when test="criterion.noValue">
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue">
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue">
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue">
+                  and ${criterion.condition}
+                  <foreach close=")" collection="criterion.value" item="listItem" open="(" separator=",">
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Base_Column_List">
+    id, mail_num, serial_number, procdate, proctime, org_full_name, action, proper_delivery, 
+    not_proper_delivery, description, effect
+  </sql>
+  <select id="selectByExample" parameterType="com.huaao.ejwplatform.dao.JwEmsStatusExample" resultMap="BaseResultMap">
+    select
+    <if test="distinct">
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    from jw_ems_status
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null">
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null">
+      <if test="offset != null">
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null">
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select 
+    <include refid="Base_Column_List" />
+    from jw_ems_status
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    delete from jw_ems_status
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <delete id="deleteByExample" parameterType="com.huaao.ejwplatform.dao.JwEmsStatusExample">
+    delete from jw_ems_status
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+  </delete>
+  <insert id="insert" parameterType="com.huaao.ejwplatform.dao.JwEmsStatus">
+    insert into jw_ems_status (id, mail_num, serial_number, 
+      procdate, proctime, org_full_name, 
+      action, proper_delivery, not_proper_delivery, 
+      description, effect)
+    values (#{id,jdbcType=VARCHAR}, #{mailNum,jdbcType=VARCHAR}, #{serialNumber,jdbcType=VARCHAR}, 
+      #{procdate,jdbcType=VARCHAR}, #{proctime,jdbcType=VARCHAR}, #{orgFullName,jdbcType=VARCHAR}, 
+      #{action,jdbcType=VARCHAR}, #{properDelivery,jdbcType=VARCHAR}, #{notProperDelivery,jdbcType=VARCHAR}, 
+      #{description,jdbcType=VARCHAR}, #{effect,jdbcType=INTEGER})
+  </insert>
+  <insert id="insertSelective" parameterType="com.huaao.ejwplatform.dao.JwEmsStatus">
+    insert into jw_ems_status
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        id,
+      </if>
+      <if test="mailNum != null">
+        mail_num,
+      </if>
+      <if test="serialNumber != null">
+        serial_number,
+      </if>
+      <if test="procdate != null">
+        procdate,
+      </if>
+      <if test="proctime != null">
+        proctime,
+      </if>
+      <if test="orgFullName != null">
+        org_full_name,
+      </if>
+      <if test="action != null">
+        action,
+      </if>
+      <if test="properDelivery != null">
+        proper_delivery,
+      </if>
+      <if test="notProperDelivery != null">
+        not_proper_delivery,
+      </if>
+      <if test="description != null">
+        description,
+      </if>
+      <if test="effect != null">
+        effect,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="mailNum != null">
+        #{mailNum,jdbcType=VARCHAR},
+      </if>
+      <if test="serialNumber != null">
+        #{serialNumber,jdbcType=VARCHAR},
+      </if>
+      <if test="procdate != null">
+        #{procdate,jdbcType=VARCHAR},
+      </if>
+      <if test="proctime != null">
+        #{proctime,jdbcType=VARCHAR},
+      </if>
+      <if test="orgFullName != null">
+        #{orgFullName,jdbcType=VARCHAR},
+      </if>
+      <if test="action != null">
+        #{action,jdbcType=VARCHAR},
+      </if>
+      <if test="properDelivery != null">
+        #{properDelivery,jdbcType=VARCHAR},
+      </if>
+      <if test="notProperDelivery != null">
+        #{notProperDelivery,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null">
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="effect != null">
+        #{effect,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  <select id="countByExample" parameterType="com.huaao.ejwplatform.dao.JwEmsStatusExample" resultType="java.lang.Integer">
+    select count(*) from jw_ems_status
+    <if test="_parameter != null">
+      <include refid="Example_Where_Clause" />
+    </if>
+  </select>
+  <update id="updateByExampleSelective" parameterType="map">
+    update jw_ems_status
+    <set>
+      <if test="record.id != null">
+        id = #{record.id,jdbcType=VARCHAR},
+      </if>
+      <if test="record.mailNum != null">
+        mail_num = #{record.mailNum,jdbcType=VARCHAR},
+      </if>
+      <if test="record.serialNumber != null">
+        serial_number = #{record.serialNumber,jdbcType=VARCHAR},
+      </if>
+      <if test="record.procdate != null">
+        procdate = #{record.procdate,jdbcType=VARCHAR},
+      </if>
+      <if test="record.proctime != null">
+        proctime = #{record.proctime,jdbcType=VARCHAR},
+      </if>
+      <if test="record.orgFullName != null">
+        org_full_name = #{record.orgFullName,jdbcType=VARCHAR},
+      </if>
+      <if test="record.action != null">
+        action = #{record.action,jdbcType=VARCHAR},
+      </if>
+      <if test="record.properDelivery != null">
+        proper_delivery = #{record.properDelivery,jdbcType=VARCHAR},
+      </if>
+      <if test="record.notProperDelivery != null">
+        not_proper_delivery = #{record.notProperDelivery,jdbcType=VARCHAR},
+      </if>
+      <if test="record.description != null">
+        description = #{record.description,jdbcType=VARCHAR},
+      </if>
+      <if test="record.effect != null">
+        effect = #{record.effect,jdbcType=INTEGER},
+      </if>
+    </set>
+    <if test="_parameter != null">
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExample" parameterType="map">
+    update jw_ems_status
+    set id = #{record.id,jdbcType=VARCHAR},
+      mail_num = #{record.mailNum,jdbcType=VARCHAR},
+      serial_number = #{record.serialNumber,jdbcType=VARCHAR},
+      procdate = #{record.procdate,jdbcType=VARCHAR},
+      proctime = #{record.proctime,jdbcType=VARCHAR},
+      org_full_name = #{record.orgFullName,jdbcType=VARCHAR},
+      action = #{record.action,jdbcType=VARCHAR},
+      proper_delivery = #{record.properDelivery,jdbcType=VARCHAR},
+      not_proper_delivery = #{record.notProperDelivery,jdbcType=VARCHAR},
+      description = #{record.description,jdbcType=VARCHAR},
+      effect = #{record.effect,jdbcType=INTEGER}
+    <if test="_parameter != null">
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByPrimaryKeySelective" parameterType="com.huaao.ejwplatform.dao.JwEmsStatus">
+    update jw_ems_status
+    <set>
+      <if test="mailNum != null">
+        mail_num = #{mailNum,jdbcType=VARCHAR},
+      </if>
+      <if test="serialNumber != null">
+        serial_number = #{serialNumber,jdbcType=VARCHAR},
+      </if>
+      <if test="procdate != null">
+        procdate = #{procdate,jdbcType=VARCHAR},
+      </if>
+      <if test="proctime != null">
+        proctime = #{proctime,jdbcType=VARCHAR},
+      </if>
+      <if test="orgFullName != null">
+        org_full_name = #{orgFullName,jdbcType=VARCHAR},
+      </if>
+      <if test="action != null">
+        action = #{action,jdbcType=VARCHAR},
+      </if>
+      <if test="properDelivery != null">
+        proper_delivery = #{properDelivery,jdbcType=VARCHAR},
+      </if>
+      <if test="notProperDelivery != null">
+        not_proper_delivery = #{notProperDelivery,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null">
+        description = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="effect != null">
+        effect = #{effect,jdbcType=INTEGER},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.JwEmsStatus">
+    update jw_ems_status
+    set mail_num = #{mailNum,jdbcType=VARCHAR},
+      serial_number = #{serialNumber,jdbcType=VARCHAR},
+      procdate = #{procdate,jdbcType=VARCHAR},
+      proctime = #{proctime,jdbcType=VARCHAR},
+      org_full_name = #{orgFullName,jdbcType=VARCHAR},
+      action = #{action,jdbcType=VARCHAR},
+      proper_delivery = #{properDelivery,jdbcType=VARCHAR},
+      not_proper_delivery = #{notProperDelivery,jdbcType=VARCHAR},
+      description = #{description,jdbcType=VARCHAR},
+      effect = #{effect,jdbcType=INTEGER}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+</mapper>

@@ -1,0 +1,397 @@
+package com.huaao.ejwplatform.api.control;
+
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+
+import javax.validation.Valid;
+
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.huaao.ejwplatform.api.dto.bean.ApplyRecordInfo;
+import com.huaao.ejwplatform.api.dto.bean.CriminalInfo;
+import com.huaao.ejwplatform.api.dto.bean.EmsBean;
+import com.huaao.ejwplatform.api.dto.criminal.DtoAcceptCriminalRequest;
+import com.huaao.ejwplatform.api.dto.criminal.DtoAppraiseCriminalRequest;
+import com.huaao.ejwplatform.api.dto.criminal.DtoCreateCriminalRequest;
+import com.huaao.ejwplatform.api.dto.criminal.DtoCreateCriminalResponse;
+import com.huaao.ejwplatform.api.dto.criminal.DtoHasRecordRequest;
+import com.huaao.ejwplatform.api.dto.criminal.DtoQueryApplyRecordsRequest;
+import com.huaao.ejwplatform.api.dto.criminal.DtoQueryCriminalDetailRequest;
+import com.huaao.ejwplatform.api.dto.criminal.DtoQueryCriminalRequest;
+import com.huaao.ejwplatform.api.dto.criminal.DtoSelectRecordRequest;
+import com.huaao.ejwplatform.api.dto.criminal.DtoUserInfoForQueryCriminalResponse;
+import com.huaao.ejwplatform.api.dto.ems.DtoQueryEmsInfoResponse;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponse;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponseList;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponseObj;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponsePager;
+import com.huaao.ejwplatform.api.util.ApiTool;
+import com.huaao.ejwplatform.common.Constants;
+import com.huaao.ejwplatform.common.Page;
+import com.huaao.ejwplatform.common.util.DateTool;
+import com.huaao.ejwplatform.common.util.FuncTool;
+import com.huaao.ejwplatform.common.web.ApiDescription;
+import com.huaao.ejwplatform.common.web.SystemException;
+import com.huaao.ejwplatform.dao.JwCriminalAppraise;
+import com.huaao.ejwplatform.dao.JwCriminalRecord;
+import com.huaao.ejwplatform.dao.JwEms;
+import com.huaao.ejwplatform.dao.JwEmsArea;
+import com.huaao.ejwplatform.dao.JwEmsInfo;
+import com.huaao.ejwplatform.dao.JwEmsStatus;
+import com.huaao.ejwplatform.dao.SysApplyRecordExt;
+import com.huaao.ejwplatform.dao.SysDeptWithBLOBs;
+import com.huaao.ejwplatform.dao.SysUser;
+import com.huaao.ejwplatform.service.ApplyRecordService;
+import com.huaao.ejwplatform.service.CriminalService;
+import com.huaao.ejwplatform.service.UserService;
+import com.huaao.ejwplatform.service.ems.EmsService;
+import com.huaao.ejwplatform.service.model.CriminalAuthStatusEnum;
+import com.huaao.ejwplatform.service.qrcode.QrCodeService;
+import com.huaao.ejwplatform.service.system.DeptService;
+
+@ApiDescription("无犯罪记录证明")
+@Controller
+@RequestMapping("api/criminal")
+public class CriminalController {
+	private static final Logger LOG = LoggerFactory.getLogger(CriminalController.class);
+
+	@Autowired
+	private CriminalService criminalService;
+
+	@Autowired
+	private EmsService emsService;
+
+	@Autowired
+	private ApplyRecordService applyRecordService;
+
+	@Autowired
+	private UserService userService;
+
+	@Autowired
+	private QrCodeService qrcodeService;
+
+	@Autowired
+	private DeptService deptService;
+
+	@RequestMapping("createCriminal")
+	@ResponseBody
+	@ApiDescription("提交证明;负责人：hongli")
+	public DtoCreateCriminalResponse createCriminal(@Valid DtoCreateCriminalRequest dtoRequest) {
+		DtoCreateCriminalResponse dtoResponse = new DtoCreateCriminalResponse();
+		try {
+			checkInput(dtoRequest, dtoResponse);
+			if (dtoResponse.getCode().intValue() != Constants.API_CODE_SUCCESS.intValue()) {
+				return dtoResponse;
+			}
+			JwCriminalRecord jcr = new JwCriminalRecord();
+			FuncTool.copyProperties(dtoRequest, jcr);
+			// 申请人ID
+			jcr.setUserId(dtoRequest.getUid());
+			// 创建时间
+			Date d = Calendar.getInstance().getTime();
+			// 新增
+			if (StringUtils.isBlank(dtoRequest.getCriminalId())) {
+				jcr.setCreateTime(d);
+				jcr.setUpdateTime(d);
+				jcr.setId(UUID.randomUUID().toString().replaceAll("-", ""));
+				// 待受理
+				jcr.setAuthStatus(CriminalAuthStatusEnum.DAI_SHOU_LI.getCode());
+				jcr.setAuthDesc(CriminalAuthStatusEnum.DAI_SHOU_LI.getDesc());
+				jcr.setHasRecord(0);
+				jcr.setStatus(0);
+				jcr.setRecieveType(0);
+				criminalService.addCriminalRecord(jcr);
+			} else {
+				// 更新
+				jcr.setId(dtoRequest.getCriminalId());
+				jcr.setUpdateTime(d);
+				// 原记录改为已失效，再新增一条记录
+				jcr.setAuthStatus(CriminalAuthStatusEnum.YI_SHI_XIAO.getCode());
+				jcr.setAuthDesc(CriminalAuthStatusEnum.YI_SHI_XIAO.getDesc());
+				criminalService.updateCriminalRecord(jcr);
+				// 新增一条记录
+				jcr.setId(UUID.randomUUID().toString().replaceAll("-", ""));
+				jcr.setCreateTime(d);
+				jcr.setUpdateTime(d);
+				// 待受理
+				jcr.setAuthStatus(CriminalAuthStatusEnum.DAI_SHOU_LI.getCode());
+				jcr.setAuthDesc(CriminalAuthStatusEnum.DAI_SHOU_LI.getDesc());
+				jcr.setHasRecord(0);
+				jcr.setStatus(0);
+				jcr.setRecieveType(0);
+				criminalService.addCriminalRecord(jcr);
+			}
+		} catch (Exception e) {
+			dtoResponse.setCode(Constants.API_CODE_FAIL);
+			dtoResponse.setMsg("提交证明失败");
+			LOG.error(dtoResponse.getMsg() + " " + e.getMessage(), e);
+		}
+		return dtoResponse;
+	}
+
+	/**
+	 * 输入参数校验.
+	 * @param dtoRequest
+	 * @param dtoResponse
+	 */
+	private void checkInput(DtoCreateCriminalRequest dtoRequest, DtoCreateCriminalResponse dtoResponse) {
+		// 代办
+		if (dtoRequest.getType() != null && dtoRequest.getType().intValue() == 1) {
+			if (StringUtils.isBlank(dtoRequest.getIdcardImg1()) || StringUtils.isBlank(dtoRequest.getIdcardImg2())) {
+				dtoResponse.setCode(Constants.API_CODE_FAIL);
+				dtoResponse.setMsg("请上传办理人身份证照");
+				return;
+			}
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	@RequestMapping("queryCriminal")
+	@ResponseBody
+	@ApiDescription("证明查询;负责人：hongli;authStatus状态: 0 待受理：提交申请等待受理 ,1 待审批：已受理等待审核结果, 2 待确认：审核通过，等待用户选择领取方式, "
+			+ "3 待自取：用户选择自行领取 4,配送中：用户选择邮寄并支付成功 5 ,未通过：未受理被驳回 ,"
+			+"6 已签收：快递单号状态变为收件,7 已领取：用户自行前往领取成功," 
+			+ " 8 已失效：审核通过、未受理、选择自行领取以上三种7天内无后续操作 ,9 待支付, 10-已评价" )
+	public DtoPublicResponsePager<CriminalInfo> queryCriminal(@Valid DtoQueryCriminalRequest dtoRequest) throws Exception{
+		DtoPublicResponsePager<CriminalInfo> dtoResponse = new DtoPublicResponsePager<CriminalInfo>();
+		try {
+			long s = System.currentTimeMillis();
+			Page page = ApiTool.convert(dtoRequest);
+			String orderby = StringUtils.isBlank(dtoRequest.getSortby()) ? " create_time desc "
+					: dtoRequest.getSortby();
+			List<JwCriminalRecord> records = criminalService.selectCriminalList(page, orderby, dtoRequest.getKeyword(),
+					dtoRequest.getUserId(), dtoRequest.getAuthStatus(), dtoRequest.getUid(),dtoRequest.getHasRecord());
+			List<CriminalInfo> datas = FuncTool.copyPropertiesList(records, CriminalInfo.class);
+			 
+			if (datas != null && datas.size() > 0) {
+				for (CriminalInfo ci : datas) {
+					queryCriminalLogic(ci);
+				}
+			}
+			ApiTool.fillPagerData(page, dtoResponse);
+			dtoResponse.setData(datas);
+			long e = System.currentTimeMillis();
+			LOG.info("queryCriminal cost {}ms", (e - s));
+		} catch (Exception e) {
+			throw e;
+		}
+		return dtoResponse;
+	}
+	
+	@RequestMapping("queryCriminalDetail")
+	@ResponseBody
+	@ApiDescription("证明详情查询;负责人：hongli;" )
+	public DtoPublicResponseObj<CriminalInfo> queryCriminalDetail(@Valid DtoQueryCriminalDetailRequest dtoRequest) throws Exception{
+		DtoPublicResponseObj<CriminalInfo> dtoResponse = new DtoPublicResponseObj<>();
+		long s = System.currentTimeMillis();
+		JwCriminalRecord record = criminalService.selectCriminalById(dtoRequest.getCriminalId());
+		if(record == null){
+			throw SystemException.init("无犯罪记录证明ID不正确");
+		}
+		CriminalInfo ci = FuncTool.copyPropertiesClass(record, CriminalInfo.class);
+		queryCriminalLogic(ci);
+		dtoResponse.setData(ci);
+		long e = System.currentTimeMillis();
+		LOG.info("queryCriminalDetail cost {}ms", (e - s));
+		return dtoResponse;
+	}
+
+	private void queryCriminalLogic(CriminalInfo ci) throws Exception {
+		JwEms jwEms = emsService.selectByRecordId(ci.getId());
+		EmsBean ems = new EmsBean();
+		if (jwEms != null) {
+			FuncTool.copyProperties(jwEms, ems);
+			ci.setEms(ems);
+		}
+		List<SysApplyRecordExt> record = applyRecordService.selectByRecordId(ci.getId());
+		if (record != null) {
+			List<ApplyRecordInfo> applyRecords = FuncTool.copyPropertiesList(record, ApplyRecordInfo.class);
+			ci.setApplyRecords(applyRecords);
+			
+			JwCriminalAppraise jwCriminalAppraise = criminalService.queryCriminalAppraise(ci.getId());
+			if(applyRecords!=null && applyRecords.size() > 0 && jwCriminalAppraise!=null){
+				for(ApplyRecordInfo ari : applyRecords){
+					calculateAppraiseScore(jwCriminalAppraise, ari);
+				}
+			}
+		}
+		// 查询申请人信息
+		SysUser sysUser = userService.getUserById(ci.getUserId());
+		DtoUserInfoForQueryCriminalResponse user = new DtoUserInfoForQueryCriminalResponse();
+		FuncTool.copyProperties(sysUser, user);
+		ci.setUser(user);
+		// 查询办理单位名称
+		SysDeptWithBLOBs dept = deptService.getDeptById(ci.getDeptId());
+		ci.setDeptName(dept.getName());
+		// 计算有效期剩余天数
+		if (ci.getInvalidTime() != null) {
+			int invalidSurplusDays = 0;
+			try {
+				if (ci.getInvalidTime().getTime() > System.currentTimeMillis()) {
+					invalidSurplusDays = DateTool.getDaysBetween(Calendar.getInstance().getTime(),
+							ci.getInvalidTime());
+				}
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+			ci.setInvalidSurplusDays(invalidSurplusDays);
+		}
+		// 收件人信息
+		DtoQueryEmsInfoResponse emsInfoResp = new DtoQueryEmsInfoResponse();
+		JwEmsInfo emsInfo = emsService.selectEmsInfoByRecordId(ci.getId());
+		if (emsInfo != null) {
+			FuncTool.copyProperties(emsInfo, emsInfoResp);
+			ci.setEmsInfo(emsInfoResp);
+			if(ems != null){
+				emsInfoResp.setMailNum(ems.getMailNum());
+			}
+			if(StringUtils.isNumeric(emsInfo.getAreaId())){
+				JwEmsArea area = emsService.getAreaInfo(emsInfo.getAreaId());
+				if(area != null){
+					emsInfoResp.setAreaName(area.getMergerName());
+				}
+			}
+		}
+		// 查询物流信息
+		if(ci.getRecieveType() == 2 && (jwEms == null || jwEms.getMailNum() == null)) {
+			LOG.info("运单号为空");
+			return;
+		}
+		// 查询签收时间
+		if (ci.getAuthStatus() == CriminalAuthStatusEnum.YI_QIAN_SHOU.getCode().intValue()
+				&& jwEms != null && jwEms.getMailNum() != null) {
+			JwEmsStatus jwEmsStatus = emsService.selectByMainNumAndAction(jwEms.getMailNum(), "10");
+			try {
+				Date recieveTime = DateTool
+						.parseDateFromPattern(jwEmsStatus.getProcdate() + jwEmsStatus.getProctime());
+				ci.setEmsRecieveTime(recieveTime);
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+		}
+	}
+
+
+	@RequestMapping("acceptCriminal")
+	@ResponseBody
+	@ApiDescription("证明受理;负责人：shilei")
+	public DtoPublicResponse acceptCriminal(@Valid DtoAcceptCriminalRequest dtoRequest) {
+		DtoPublicResponse dtoResponse = new DtoPublicResponse();
+		try {
+			criminalService.updateAcceptCriminal(dtoRequest.getCriminalIds(), dtoRequest.getAuthStatus(),
+					dtoRequest.getAuthDesc(), dtoRequest.getUid());
+			dtoResponse.setCode(Constants.API_CODE_SUCCESS);
+		} catch (Exception e) {
+			LOG.error("acceptCriminal fail", e);
+			dtoResponse.setCode(Constants.API_CODE_FAIL);
+			dtoResponse.setMsg("证明受理异常");
+		}
+		return dtoResponse;
+	}
+
+	@RequestMapping("hasRecord")
+	@ResponseBody
+	@ApiDescription("开具证明;负责人：shilei")
+	public DtoPublicResponse hasRecord(@Valid DtoHasRecordRequest dtoRequest) {
+		DtoPublicResponse dtoResponse = new DtoPublicResponse();
+		try {
+			criminalService.updateHasRecord(dtoRequest.getCriminalIds(), dtoRequest.getHasRecord(),
+					dtoRequest.getUid());
+			dtoResponse.setCode(Constants.API_CODE_SUCCESS);
+		} catch (Exception e) {
+			LOG.error("hasRecord fail", e);
+			dtoResponse.setCode(Constants.API_CODE_FAIL);
+			dtoResponse.setMsg("开具证明异常");
+		}
+		return dtoResponse;
+	}
+
+	@RequestMapping("selectReceive")
+	@ResponseBody
+	@ApiDescription("用户选择接收方式;负责人：shilei")
+	public DtoPublicResponseObj<String> selectReceive(@Valid DtoSelectRecordRequest dtoRequest) {
+		DtoPublicResponseObj<String> dtoResponse = new DtoPublicResponseObj<String>();
+		try {
+			String path = null;
+			if (dtoRequest.getRecieveType() == 1) {
+				path = qrcodeService.createQrcode(dtoRequest.getCriminalIds());
+				dtoResponse.setData(path);
+			}
+			criminalService.addSelectReceive(dtoRequest.getCriminalIds(), dtoRequest.getRecieveType(),
+					dtoRequest.getUid(), path);
+			dtoResponse.setCode(Constants.API_CODE_SUCCESS);
+		} catch (Exception e) {
+			LOG.error("selectReceive fail", e);
+			dtoResponse.setCode(Constants.API_CODE_FAIL);
+			dtoResponse.setMsg("用户选择接收方式异常");
+		}
+		return dtoResponse;
+	}
+	
+	@ApiDescription("网上办事评价;负责人：fuwei")
+	@RequestMapping("appraiseCriminal")
+	@ResponseBody
+	public DtoPublicResponse appraiseCriminal(@Valid DtoAppraiseCriminalRequest dtoRequest) throws Exception {
+		JwCriminalAppraise criminalAppraise = new JwCriminalAppraise();
+		criminalAppraise.setCriminalId(dtoRequest.getCriminalId());
+		criminalAppraise.setFeedbackResult(dtoRequest.getFeedbackResult());
+		criminalAppraise.setProcessingEfficiency(dtoRequest.getProcessingEfficiency());
+		criminalAppraise.setTurningSpeed(dtoRequest.getTurningSpeed());
+		criminalAppraise.setCreateTime(Calendar.getInstance().getTime());
+		criminalAppraise.setUserId(dtoRequest.getUid());
+		criminalService.appraiseCriminal(criminalAppraise,dtoRequest.getUid());
+		return DtoPublicResponse.init();
+		
+	}
+	
+	@SuppressWarnings("unchecked")
+	@ApiDescription("查询网上办事审核记录;负责人：hongli")
+	@RequestMapping("queryApplyRecords")
+	@ResponseBody
+	public DtoPublicResponseList<ApplyRecordInfo> queryApplyRecords(@Valid DtoQueryApplyRecordsRequest dtoRequest) throws Exception{
+		DtoPublicResponseList<ApplyRecordInfo> dtoResponse = new DtoPublicResponseList<>();
+		List<SysApplyRecordExt> record = applyRecordService.selectByRecordId(dtoRequest.getCriminalId());
+		if (record != null) {
+			List<ApplyRecordInfo> applyRecords = FuncTool.copyPropertiesList(record, ApplyRecordInfo.class);
+			JwCriminalAppraise jwCriminalAppraise = criminalService.queryCriminalAppraise(dtoRequest.getCriminalId());
+			if(applyRecords!=null && applyRecords.size() > 0 && jwCriminalAppraise!=null){
+				for(ApplyRecordInfo ari : applyRecords){
+					calculateAppraiseScore(jwCriminalAppraise, ari);
+				}
+			}
+			dtoResponse.setData(applyRecords);
+		}
+		return dtoResponse;
+	}
+
+	/**
+	 * 计算评价分数.
+	 * @param jwCriminalAppraise
+	 * @param ari
+	 */
+	private void calculateAppraiseScore(JwCriminalAppraise jwCriminalAppraise, ApplyRecordInfo ari) {
+		if(ari.getStatus()!=null && ari.getStatus() == 10){
+			ari.setTurningSpeed(jwCriminalAppraise.getTurningSpeed());
+			ari.setProcessingEfficiency(jwCriminalAppraise.getProcessingEfficiency());
+			ari.setFeedbackResult(jwCriminalAppraise.getFeedbackResult());
+			int rate = ari.getFeedbackResult() + ari.getProcessingEfficiency() + ari.getTurningSpeed();
+			if(rate < 6){
+				ari.setRate(3);
+			}
+			if(rate >=6 && rate < 10){
+				ari.setRate(2);
+			}
+			if(rate >= 10){
+				ari.setRate(1);
+			}
+		}
+	}
+}

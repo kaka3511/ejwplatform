@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.huaao.ejwplatform.mapper.JwCommentMapper" >
+  <resultMap id="BaseResultMap" type="com.huaao.ejwplatform.dao.JwComment" >
+    <id column="id" property="id" jdbcType="VARCHAR" />
+    <result column="type" property="type" jdbcType="TINYINT" />
+    <result column="content_id" property="contentId" jdbcType="VARCHAR" />
+    <result column="user_id" property="userId" jdbcType="VARCHAR" />
+    <result column="location" property="location" jdbcType="VARCHAR" />
+    <result column="address" property="address" jdbcType="VARCHAR" />
+  </resultMap>
+  <resultMap id="ResultMapWithBLOBs" type="com.huaao.ejwplatform.dao.JwCommentWithBLOBs" extends="BaseResultMap" >
+    <result column="content" property="content" jdbcType="LONGVARCHAR" />
+    <result column="imgs" property="imgs" jdbcType="LONGVARCHAR" />
+    <result column="voices" property="voices" jdbcType="LONGVARCHAR" />
+    <result column="videos" property="videos" jdbcType="LONGVARCHAR" />
+  </resultMap>
+  <sql id="Example_Where_Clause" >
+    <where >
+      <foreach collection="oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Update_By_Example_Where_Clause" >
+    <where >
+      <foreach collection="example.oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Base_Column_List" >
+    id, type, content_id, user_id, location, address
+  </sql>
+  <sql id="Blob_Column_List" >
+    content, imgs, voices, videos
+  </sql>
+  <select id="selectByExampleWithBLOBs" resultMap="ResultMapWithBLOBs" parameterType="com.huaao.ejwplatform.dao.JwCommentExample" >
+    select
+    <if test="distinct" >
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    ,
+    <include refid="Blob_Column_List" />
+    from jw_comment
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null" >
+      order by ${orderByClause}
+    </if>
+  </select>
+  <select id="selectByExample" resultMap="BaseResultMap" parameterType="com.huaao.ejwplatform.dao.JwCommentExample" >
+    select
+    <if test="distinct" >
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    from jw_comment
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null" >
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null" >
+      <if test="offset != null" >
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null" >
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <select id="selectByPrimaryKey" resultMap="ResultMapWithBLOBs" parameterType="java.lang.String" >
+    select 
+    <include refid="Base_Column_List" />
+    ,
+    <include refid="Blob_Column_List" />
+    from jw_comment
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String" >
+    delete from jw_comment
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <delete id="deleteByExample" parameterType="com.huaao.ejwplatform.dao.JwCommentExample" >
+    delete from jw_comment
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </delete>
+  <insert id="insert" parameterType="com.huaao.ejwplatform.dao.JwCommentWithBLOBs" >
+    insert into jw_comment (id, type, content_id, 
+      user_id, location, address, 
+      content, imgs, voices, 
+      videos)
+    values (#{id,jdbcType=VARCHAR}, #{type,jdbcType=TINYINT}, #{contentId,jdbcType=VARCHAR}, 
+      #{userId,jdbcType=VARCHAR}, #{location,jdbcType=VARCHAR}, #{address,jdbcType=VARCHAR}, 
+      #{content,jdbcType=LONGVARCHAR}, #{imgs,jdbcType=LONGVARCHAR}, #{voices,jdbcType=LONGVARCHAR}, 
+      #{videos,jdbcType=LONGVARCHAR})
+  </insert>
+  <insert id="insertSelective" parameterType="com.huaao.ejwplatform.dao.JwCommentWithBLOBs" >
+    insert into jw_comment
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        id,
+      </if>
+      <if test="type != null" >
+        type,
+      </if>
+      <if test="contentId != null" >
+        content_id,
+      </if>
+      <if test="userId != null" >
+        user_id,
+      </if>
+      <if test="location != null" >
+        location,
+      </if>
+      <if test="address != null" >
+        address,
+      </if>
+      <if test="content != null" >
+        content,
+      </if>
+      <if test="imgs != null" >
+        imgs,
+      </if>
+      <if test="voices != null" >
+        voices,
+      </if>
+      <if test="videos != null" >
+        videos,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="type != null" >
+        #{type,jdbcType=TINYINT},
+      </if>
+      <if test="contentId != null" >
+        #{contentId,jdbcType=VARCHAR},
+      </if>
+      <if test="userId != null" >
+        #{userId,jdbcType=VARCHAR},
+      </if>
+      <if test="location != null" >
+        #{location,jdbcType=VARCHAR},
+      </if>
+      <if test="address != null" >
+        #{address,jdbcType=VARCHAR},
+      </if>
+      <if test="content != null" >
+        #{content,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="imgs != null" >
+        #{imgs,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="voices != null" >
+        #{voices,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="videos != null" >
+        #{videos,jdbcType=LONGVARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <select id="countByExample" parameterType="com.huaao.ejwplatform.dao.JwCommentExample" resultType="java.lang.Integer" >
+    select count(*) from jw_comment
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </select>
+  <update id="updateByExampleSelective" parameterType="map" >
+    update jw_comment
+    <set >
+      <if test="record.id != null" >
+        id = #{record.id,jdbcType=VARCHAR},
+      </if>
+      <if test="record.type != null" >
+        type = #{record.type,jdbcType=TINYINT},
+      </if>
+      <if test="record.contentId != null" >
+        content_id = #{record.contentId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.userId != null" >
+        user_id = #{record.userId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.location != null" >
+        location = #{record.location,jdbcType=VARCHAR},
+      </if>
+      <if test="record.address != null" >
+        address = #{record.address,jdbcType=VARCHAR},
+      </if>
+      <if test="record.content != null" >
+        content = #{record.content,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="record.imgs != null" >
+        imgs = #{record.imgs,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="record.voices != null" >
+        voices = #{record.voices,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="record.videos != null" >
+        videos = #{record.videos,jdbcType=LONGVARCHAR},
+      </if>
+    </set>
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExampleWithBLOBs" parameterType="map" >
+    update jw_comment
+    set id = #{record.id,jdbcType=VARCHAR},
+      type = #{record.type,jdbcType=TINYINT},
+      content_id = #{record.contentId,jdbcType=VARCHAR},
+      user_id = #{record.userId,jdbcType=VARCHAR},
+      location = #{record.location,jdbcType=VARCHAR},
+      address = #{record.address,jdbcType=VARCHAR},
+      content = #{record.content,jdbcType=LONGVARCHAR},
+      imgs = #{record.imgs,jdbcType=LONGVARCHAR},
+      voices = #{record.voices,jdbcType=LONGVARCHAR},
+      videos = #{record.videos,jdbcType=LONGVARCHAR}
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExample" parameterType="map" >
+    update jw_comment
+    set id = #{record.id,jdbcType=VARCHAR},
+      type = #{record.type,jdbcType=TINYINT},
+      content_id = #{record.contentId,jdbcType=VARCHAR},
+      user_id = #{record.userId,jdbcType=VARCHAR},
+      location = #{record.location,jdbcType=VARCHAR},
+      address = #{record.address,jdbcType=VARCHAR}
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByPrimaryKeySelective" parameterType="com.huaao.ejwplatform.dao.JwCommentWithBLOBs" >
+    update jw_comment
+    <set >
+      <if test="type != null" >
+        type = #{type,jdbcType=TINYINT},
+      </if>
+      <if test="contentId != null" >
+        content_id = #{contentId,jdbcType=VARCHAR},
+      </if>
+      <if test="userId != null" >
+        user_id = #{userId,jdbcType=VARCHAR},
+      </if>
+      <if test="location != null" >
+        location = #{location,jdbcType=VARCHAR},
+      </if>
+      <if test="address != null" >
+        address = #{address,jdbcType=VARCHAR},
+      </if>
+      <if test="content != null" >
+        content = #{content,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="imgs != null" >
+        imgs = #{imgs,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="voices != null" >
+        voices = #{voices,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="videos != null" >
+        videos = #{videos,jdbcType=LONGVARCHAR},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKeyWithBLOBs" parameterType="com.huaao.ejwplatform.dao.JwCommentWithBLOBs" >
+    update jw_comment
+    set type = #{type,jdbcType=TINYINT},
+      content_id = #{contentId,jdbcType=VARCHAR},
+      user_id = #{userId,jdbcType=VARCHAR},
+      location = #{location,jdbcType=VARCHAR},
+      address = #{address,jdbcType=VARCHAR},
+      content = #{content,jdbcType=LONGVARCHAR},
+      imgs = #{imgs,jdbcType=LONGVARCHAR},
+      voices = #{voices,jdbcType=LONGVARCHAR},
+      videos = #{videos,jdbcType=LONGVARCHAR}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.JwComment" >
+    update jw_comment
+    set type = #{type,jdbcType=TINYINT},
+      content_id = #{contentId,jdbcType=VARCHAR},
+      user_id = #{userId,jdbcType=VARCHAR},
+      location = #{location,jdbcType=VARCHAR},
+      address = #{address,jdbcType=VARCHAR}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+</mapper>

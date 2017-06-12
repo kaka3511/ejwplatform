@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+
+<form action="http://211.156.193.150/EMSPay-test/payEnter" method="post">
+
+bizOrderNo: <input name="bizOrderNo" type="text" value="1f3db0484b494ce6aadd56afe3966eb8"/>
+<br/>
+orderName: <input name="orderName" type="text" value="测试支付订单1f3db0484b494ce6aadd56afe3966eb8"/>
+<br/>
+bizType: <input name="bizType" type="text" value="01"/>
+<br/>
+payType: <input name="payType" type="text" value="01"/>
+<br/>
+payAmount: <input name="payAmount" type="text" value="1"/>
+<br/>
+currency: <input name="currency" type="text" value="156"/>
+<br/>
+appKey: <input name="appKey" type="text" value="02caf5852371b2d0ba35c3e839778955"/>
+<br/>
+charset:<input name="charset" type="text" value="UTF-8"/>
+<br/>
+payWay: <input name="payWay" type="text" value="01"/>
+<br/>
+sign: <input name="sign" type="text" value="vAexv6u3MqWohJ7dUEA6pQ=="/>
+<br/>
+<input type="submit" value="submit"/>
+</form>
+</body>
+</html>

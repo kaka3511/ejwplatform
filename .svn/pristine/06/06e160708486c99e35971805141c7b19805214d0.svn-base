@@ -1,0 +1,257 @@
+package com.huaao.ejwplatform.service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import com.huaao.ejwplatform.common.Constants;
+import com.huaao.ejwplatform.common.Page;
+import com.huaao.ejwplatform.common.util.DateTool;
+import com.huaao.ejwplatform.common.web.SystemException;
+import com.huaao.ejwplatform.dao.SysDeptExample;
+import com.huaao.ejwplatform.dao.SysDeptWithBLOBs;
+import com.huaao.ejwplatform.dao.SysMessage;
+import com.huaao.ejwplatform.dao.SysMessageAppraise;
+import com.huaao.ejwplatform.dao.SysMessageAppraiseExample;
+import com.huaao.ejwplatform.dao.SysMessageExample;
+import com.huaao.ejwplatform.dao.SysMessageExampleExt;
+import com.huaao.ejwplatform.dao.SysMessageExt;
+import com.huaao.ejwplatform.dao.SysUser;
+import com.huaao.ejwplatform.mapper.SysDeptMapper;
+import com.huaao.ejwplatform.mapper.SysMessageAppraiseMapper;
+import com.huaao.ejwplatform.mapper.SysMessageMapper;
+import com.huaao.ejwplatform.service.system.DeptService;
+
+import net.sf.json.JSONObject;
+
+@Service
+public class MessageService {
+	private Logger log = LoggerFactory.getLogger(this.getClass());
+	
+	@Autowired
+	private PushService pushService;
+	
+	@Autowired
+	private SysMessageMapper sysMessageMapper;
+	
+	@Autowired
+	private SysMessageAppraiseMapper messageAppraiseMapper;
+	@Autowired
+	private ToDoService toDoService;
+	@Autowired
+	private UserService userService;
+	@Autowired
+	private SysDeptMapper sysDeptMapper;
+	@Autowired
+	private DeptService deptService;
+	
+	public List<SysMessageExt> list(SysMessageExampleExt exa, Page page, String orderby) {
+		int total = sysMessageMapper.countByExampleExt(exa);
+		page.setTotalCount(total);
+		
+		exa.setOrderByClause(orderby);
+		exa.setOffset(page.getOffset());
+		exa.setLimit(page.getPageSize());
+		if(StringUtils.isEmpty(page.getSortby()) ){
+			page.setSortby(" m.update_time desc");
+		}
+		exa.setOrderByClause(page.getSortby());
+		if(total==0){
+			return new  ArrayList<SysMessageExt>() ;
+		}else{
+			List<SysMessageExt> result = new ArrayList<SysMessageExt>();
+			if(exa.getClassify() != null){
+				String[] temp = exa.getClassify().split(",");
+				for(String o:temp){
+					SysMessageExampleExt exaTemp = new SysMessageExampleExt();
+					exaTemp = exa;
+					exaTemp.setClassify(o);
+					List<SysMessageExt> resultOne = sysMessageMapper.selectPageByExample(exaTemp);
+					result.addAll(resultOne);
+				}
+				return result;
+			}
+			
+			return sysMessageMapper.selectPageByExample(exa);
+		}
+		
+	}
+	
+	public void addMsg(SysMessage msg) {
+		Date date = new Date();
+		msg.setId(UUID.randomUUID().toString().replaceAll("-", ""));
+		msg.setTime(date);
+		msg.setUpdateTime(date);
+		sysMessageMapper.insertSelective(msg);
+		//居民咨询增加消息提醒，对应警务室人员
+		if(msg.getType() == 1 || msg.getType() == 3){
+			pushService.createMessage(msg.getId());
+		}
+		//添加待办事宜统计推送
+		if (msg.getType() == 1 || msg.getType() == 2) {
+			SysUser user = userService.getUserById(msg.getUserId());
+			SysDeptWithBLOBs dept = deptService.getDeptById(user.getDeptId());
+			if (dept != null && !StringUtils.isEmpty(dept.getCode())) {
+				SysDeptExample deptExample = new SysDeptExample();
+				deptExample.createCriteria()
+						.andCodeEqualTo(dept.getCode().length() > 15 ? dept.getCode().substring(0, 15) : dept.getCode());
+				List<SysDeptWithBLOBs> blobs = sysDeptMapper.selectByExampleWithBLOBs(deptExample);
+				List<String> userIds = deptService.queryManageUserIdsByDeptId(blobs.get(0).getId());
+				for (int i = 0; i < userIds.size(); i++) {
+					pushService.pushToDoMessage(userIds.get(i),toDoService.queryToDoListNum(userIds.get(i))+"" );
+				}
+			}
+		}
+	}
+	
+	/**
+	 * 回复消息
+	 * @param msg
+	 */
+	public void replyMsg(SysMessage msg) {
+		msg.setReplyTime(new Date());
+		msg.setUpdateTime(new Date());
+		sysMessageMapper.updateByPrimaryKeySelective(msg);
+		pushService.createReplyMessage(msg.getId());
+		//添加待办事宜统计推送
+		if (msg.getType() == 1 || msg.getType() == 2) {
+			SysUser user = userService.getUserById(msg.getUserId());
+			SysDeptWithBLOBs dept = deptService.getDeptById(user.getDeptId());
+			if (dept != null && !StringUtils.isEmpty(dept.getCode())) {
+				SysDeptExample deptExample = new SysDeptExample();
+				deptExample.createCriteria()
+						.andCodeEqualTo(dept.getCode().length() > 15 ? dept.getCode().substring(0, 15) : dept.getCode());
+				List<SysDeptWithBLOBs> blobs = sysDeptMapper.selectByExampleWithBLOBs(deptExample);
+				List<String> userIds = deptService.queryManageUserIdsByDeptId(blobs.get(0).getId());
+				for (int i = 0; i < userIds.size(); i++) {
+					pushService.pushToDoMessage(userIds.get(i),toDoService.queryToDoListNum(userIds.get(i))+"" );
+				}
+			}
+		}
+	}
+
+	public void delMsgById(String id) {
+		SysMessage msg=sysMessageMapper.selectByPrimaryKey(id);
+		sysMessageMapper.deleteByPrimaryKey(id);
+		//添加待办事宜统计推送
+		if (msg.getType() == 1 || msg.getType() == 2) {
+			SysUser user = userService.getUserById(msg.getUserId());
+			SysDeptWithBLOBs dept = deptService.getDeptById(user.getDeptId());
+			if (dept != null && !StringUtils.isEmpty(dept.getCode())) {
+				SysDeptExample deptExample = new SysDeptExample();
+				deptExample.createCriteria()
+						.andCodeEqualTo(dept.getCode().length() > 15 ? dept.getCode().substring(0, 15) : dept.getCode());
+				List<SysDeptWithBLOBs> blobs = sysDeptMapper.selectByExampleWithBLOBs(deptExample);
+				List<String> userIds = deptService.queryManageUserIdsByDeptId(blobs.get(0).getId());
+				for (int i = 0; i < userIds.size(); i++) {
+					pushService.pushToDoMessage(userIds.get(i),toDoService.queryToDoListNum(userIds.get(i))+"" );
+				}
+			}
+		}
+	}
+	
+	public void updateMsg(SysMessage msg) {
+		msg.setUpdateTime(new Date());
+		sysMessageMapper.updateByPrimaryKeySelective(msg);
+		msg=sysMessageMapper.selectByPrimaryKey(msg.getId());
+		SysUser user = userService.getUserById(msg.getUserId());
+		SysDeptWithBLOBs dept = deptService.getDeptById(user.getDeptId());
+		if (dept != null && !StringUtils.isEmpty(dept.getCode())) {
+			SysDeptExample deptExample = new SysDeptExample();
+			deptExample.createCriteria()
+					.andCodeEqualTo(dept.getCode().length() > 15 ? dept.getCode().substring(0, 15) : dept.getCode());
+			List<SysDeptWithBLOBs> blobs = sysDeptMapper.selectByExampleWithBLOBs(deptExample);
+			List<String> userIds = deptService.queryManageUserIdsByDeptId(blobs.get(0).getId());
+			for (int i = 0; i < userIds.size(); i++) {
+				pushService.pushToDoMessage(userIds.get(i),toDoService.queryToDoListNum(userIds.get(i))+"" );
+			}
+		}
+	}
+	
+	public SysMessage getMsgById(String id){
+		return sysMessageMapper.selectByPrimaryKey(id);
+	}
+
+	/**
+	 * 咨询评价
+	 * @param messageAppraise
+	 * @throws SystemException 
+	 */
+	public void appraiseMsg(SysMessageAppraise messageAppraise) throws SystemException {
+		SysMessage message = sysMessageMapper.selectByPrimaryKey(messageAppraise.getMsgId());
+		if(message.getStatus() == 3){
+			throw SystemException.init("咨询已评价");
+		}
+		message.setStatus(3);
+		messageAppraiseMapper.insertSelective(messageAppraise);
+		sysMessageMapper.updateByPrimaryKey(message);
+	}
+	
+	/**
+	 * 批量评价咨询服务.
+	 */
+	public void appraiseStatusBatch() throws Exception{
+		Date currentTime = Calendar.getInstance().getTime();
+		Date tmpTime = DateTool.addDays(currentTime, -7);
+		String invalidTimeStr = DateTool.formatDate(tmpTime) + " 00:00:00";
+		Date invalidTime = DateTool.parseDateTime(invalidTimeStr);
+		
+		SysMessageExample example = new SysMessageExample();
+		//查询已回复的咨询列表
+		example.createCriteria()
+			.andStatusEqualTo(1)
+			.andTypeEqualTo(1)
+			.andUpdateTimeLessThanOrEqualTo(invalidTime);
+		
+		List<SysMessage> messages = sysMessageMapper.selectByExample(example);
+		
+		for (SysMessage message:messages) {
+			//已评价
+			message.setStatus(3);
+			//updateTime不更新
+			sysMessageMapper.updateByPrimaryKeySelective(message);
+			//记录到评价反馈日志
+			SysMessageAppraise messageApraise = new SysMessageAppraise();
+			messageApraise.setMsgId(message.getId());
+			messageApraise.setCreateTime(currentTime);
+			messageApraise.setFeedbackResult(5);
+			messageApraise.setProcessingEfficiency(5);
+			messageApraise.setTurningSpeed(5);
+			//自动评价的评价人为警情提交人
+			messageApraise.setUserId(message.getUserId());
+			SysMessageAppraiseExample exa = new SysMessageAppraiseExample();
+			exa.createCriteria().andMsgIdEqualTo(message.getId());
+			if (messageAppraiseMapper.countByExample(exa) > 0) {
+				log.info("message {} is already appraise , can't repeat appraise.", message.getId());
+				continue;
+			} else {
+				//系统自动评价
+				messageAppraiseMapper.insertSelective(messageApraise);
+			}
+		}
+	}
+
+	
+	public List<SysMessageExt> selectByMessIds(String ids) {
+		if (ids == null || ids.equals("")) {
+			return null;
+		}
+		String[] messIds = ids.split(",");
+		return sysMessageMapper.selectByMessIds(Arrays.asList(messIds));
+	}
+	
+	public Integer countMessage(SysMessageExampleExt exa){
+		return sysMessageMapper.countByExampleExt(exa);
+	}
+	
+}

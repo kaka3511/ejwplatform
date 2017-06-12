@@ -1,0 +1,25 @@
+{
+	"msg": "",
+	"code": 0,
+	"reqId": "RQ172ab94d3f154026ae30f7784e9d57d3",
+	"data": {
+		"results": [
+			{
+				"location": {
+					"id": "WT3Q0FW9ZJ3Q",
+					"name": "武汉",
+					"country": "CN",
+					"path": "武汉,武汉,湖北,中国",
+					"timezone": "Asia/Shanghai",
+					"timezone_offset": "+08:00"
+				},
+				"now": {
+					"text": "多云",
+					"code": "4",
+					"temperature": "23"
+				},
+				"last_update": "2017-06-06T13:35:00+08:00"
+			}
+		]
+	}
+}

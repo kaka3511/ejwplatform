@@ -1,0 +1,564 @@
+package com.huaao.ejwplatform.api.control;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import javax.validation.Valid;
+
+import net.sf.json.JSONObject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.BoundValueOperations;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Controller;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import com.huaao.ejwplatform.api.dto.alert.DtoAlertCommandRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoAlertDelegateRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoAllAlertItemRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoAppraiseAlertRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoCreateAlertRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoCreateAlertResponse;
+import com.huaao.ejwplatform.api.dto.alert.DtoDeleteMyAlertRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoHandoverAlertRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoOperateAlertRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoPoliceInputRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoQueryAlertRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoQueryMyAlertRequest;
+import com.huaao.ejwplatform.api.dto.alert.DtoReadNewAlertRequest;
+import com.huaao.ejwplatform.api.dto.bean.AlertInfo;
+import com.huaao.ejwplatform.api.dto.bean.AlertItem;
+import com.huaao.ejwplatform.api.dto.bean.AlertLog;
+import com.huaao.ejwplatform.api.dto.bean.DeptInfo;
+import com.huaao.ejwplatform.api.dto.bean.DeptItem;
+import com.huaao.ejwplatform.api.dto.bean.UserItem;
+import com.huaao.ejwplatform.api.dto.bean.UserShortInfo;
+import com.huaao.ejwplatform.api.dto.criminal.DtoQueryDelegateUserRequest;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicRequest;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponse;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponseList;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponsePager;
+import com.huaao.ejwplatform.api.util.ApiTool;
+import com.huaao.ejwplatform.common.Constants;
+import com.huaao.ejwplatform.common.Page;
+import com.huaao.ejwplatform.common.util.DateTool;
+import com.huaao.ejwplatform.common.util.FuncTool;
+import com.huaao.ejwplatform.common.web.ApiDescription;
+import com.huaao.ejwplatform.common.web.SystemException;
+import com.huaao.ejwplatform.dao.JwAlert;
+import com.huaao.ejwplatform.dao.JwAlertAppraise;
+import com.huaao.ejwplatform.dao.SysAppointedRecord;
+import com.huaao.ejwplatform.dao.SysAppointedRecordExample;
+import com.huaao.ejwplatform.dao.SysArea;
+import com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs;
+import com.huaao.ejwplatform.dao.SysDeptWithBLOBs;
+import com.huaao.ejwplatform.dao.SysJobs;
+import com.huaao.ejwplatform.dao.SysUser;
+import com.huaao.ejwplatform.mapper.SysAppointedRecordMapper;
+import com.huaao.ejwplatform.service.AlertService;
+import com.huaao.ejwplatform.service.UserService;
+import com.huaao.ejwplatform.service.model.CommonDict;
+import com.huaao.ejwplatform.service.model.OnlinePolice;
+import com.huaao.ejwplatform.service.system.AreaService;
+import com.huaao.ejwplatform.service.system.DeptService;
+
+@ApiDescription("警情信息")
+@Controller
+@RequestMapping("api/alert")
+public class AlertController {
+
+	private Logger log = LoggerFactory.getLogger(this.getClass());
+	@Autowired
+	private AlertService alertService;
+	@Autowired
+	private UserService userService;
+	@Autowired
+	private DeptService deptService;
+	@Autowired
+	private AreaService areaService;
+	
+	@Autowired
+	private SysAppointedRecordMapper sysAppointedRecordMapper ;
+
+	@Autowired
+	private StringRedisTemplate stringRedisTemplate;
+	
+	@RequestMapping("createAlert")
+	@ResponseBody
+	@ApiDescription("警情创建与更新;负责人：lihao")
+	public DtoCreateAlertResponse createAlert(@Valid DtoCreateAlertRequest dtoRequest) throws Exception {
+		DtoCreateAlertResponse ar = new DtoCreateAlertResponse();
+
+		if (dtoRequest.getSaveFlag() == null || dtoRequest.getSaveFlag() != 1) {
+			dtoRequest.setSaveFlag(0);
+		}
+ 		JwAlert ja = FuncTool.copyPropertiesClass(dtoRequest, JwAlert.class);
+		if (StringUtils.isEmpty(dtoRequest.getAlertId())) {
+			String id = alertService.createAlert(dtoRequest.getUid(), ja);
+			ar.setAlertId(id);
+		} else {
+			ja.setId(dtoRequest.getAlertId());
+			alertService.updateAlert(dtoRequest.getUid(), ja);
+			ar.setAlertId(dtoRequest.getAlertId());
+		}
+		return ar;
+	}
+
+	
+	@ApiDescription("随手记删除;负责人：lihao")
+	@RequestMapping("deleteMyAlert")
+	@ResponseBody
+	public DtoPublicResponse deleteMyAlert(@Valid DtoDeleteMyAlertRequest dto)  throws Exception{
+		
+		alertService.deleteAlert(Arrays.asList(dto.getAlertIds().split(",")));
+		return DtoPublicResponse.init();
+	}
+
+	@ApiDescription("我的警情查询;负责人：lihao;查询自己上报的警情")
+	@RequestMapping("queryMyAlert")
+	@ResponseBody
+	public DtoPublicResponsePager<AlertInfo> queryMyAlert(@Valid DtoQueryMyAlertRequest dtoRequest) throws Exception {
+		DtoPublicResponsePager<AlertInfo> dtoResponse = new DtoPublicResponsePager<AlertInfo>();
+
+		Page p = ApiTool.convert(dtoRequest);
+		List<JwAlert> listAlert = alertService.queryMyAlertList(dtoRequest.getUid(), dtoRequest.getType(), p);
+		List<AlertInfo> alerts = FuncTool.copyPropertiesList(listAlert, AlertInfo.class);
+		ApiTool.fillPagerData(p, dtoResponse);
+
+		queryAlertLogic(listAlert, alerts);
+		dtoResponse.setData(alerts);
+		return dtoResponse;
+
+	}
+	
+	@ApiDescription("警情补录;负责人:lihao")
+	@RequestMapping("policeInput")
+	@ResponseBody
+	public DtoPublicResponse policeInput(@Valid DtoPoliceInputRequest dto) throws Exception {
+		DtoPublicResponse dtoResponse = new DtoPublicResponse();
+		alertService.policeInput(dto.getPhone(), dto.getName(), dto.getUid(), FuncTool.copyPropertiesClass(dto, JwAlert.class));
+		return dtoResponse;
+	}
+	
+	@ApiDescription("查询委派人员;负责人：lihao;所属派出所下级除小区以外的所有人员,排除派出所自己部门,只有派出所才能委派")
+	@RequestMapping("queryDelegateUser")
+	@ResponseBody
+	public DtoPublicResponseList<DeptItem> queryDelegateUser(@Valid DtoQueryDelegateUserRequest dtoRequest)
+			throws Exception {
+		DtoPublicResponseList<DeptItem> dtoResponse = new DtoPublicResponseList<>();
+
+		SysUser user = userService.queryUser(dtoRequest.getUid());
+		SysDeptWithBLOBs dept = deptService.getDeptById(user.getDeptId());
+		if (dept == null) {
+			throw new Exception("用户不属于任何部门");
+		}
+		if (dept.getCode().length() > 15) {
+			throw new Exception("非派出所用户不能委派");
+		}
+
+		List<DeptItem> listDeptItem = new ArrayList<>();
+		List<SysDeptWithBLOBs> listDept = deptService.getDelegateDept(dept);
+		if (listDept == null || listDept.isEmpty()) {
+			log.info("该单位无对应子部门，委派人员列表为空");
+			return dtoResponse;
+		}
+		List<SysUser> listUser = userService.queryAuthedUsersByDepts(listDept);
+
+		// 查询用户部门和职务信息
+		List<String> jobIds = new ArrayList<>();
+		List<String> deptIds = new ArrayList<>();
+		for (SysUser item : listUser) {
+			if (!StringUtils.isEmpty(item.getJobsId())) {
+				jobIds.add(item.getJobsId());
+			}
+			if (!StringUtils.isEmpty(item.getDeptId())) {
+				deptIds.add(item.getDeptId());
+			}
+		}
+		List<SysJobs> listJobs = userService.queryJobsByIds(jobIds);
+		Map<String, String> map = new HashMap<>();
+		for (SysJobs item : listJobs) {
+			map.put(item.getId(), item.getName());
+		}
+
+		List<SysDeptWithBLOBs> listDepts = deptService.queryDeptByIds(deptIds);
+		Map<String, DeptInfo> mapDept = new HashMap<>();
+		for (SysDeptWithBLOBs item : listDepts) {
+			mapDept.put(item.getId(), FuncTool.copyPropertiesClass(item, DeptInfo.class));
+		}
+
+		// 设置部门内的用户
+		for (SysDeptWithBLOBs itemDept : listDept) {
+			DeptItem deptItem = FuncTool.copyPropertiesClass(itemDept, DeptItem.class);
+			List<UserShortInfo> listUserItem = new ArrayList<>();
+			for (SysUser itemUser : listUser) {
+				// 过滤自己
+				if (itemUser.getId().equals(dtoRequest.getUid())) {
+					continue;
+				}
+				// 关键词过滤
+				if (!StringUtils.isEmpty(dtoRequest.getKeyword())) {
+
+					if (!((itemUser.getRealname() != null && itemUser.getRealname().contains(dtoRequest.getKeyword()))
+							|| itemUser.getPhone().contains(dtoRequest.getKeyword()))) {
+						continue;
+					}
+
+				}
+				if (deptItem.getId().equals(itemUser.getDeptId())) {
+					listUserItem.add(FuncTool.copyPropertiesClass(itemUser, UserShortInfo.class));
+				}
+			}
+			for (UserShortInfo item : listUserItem) {
+				item.setJobsName(map.get(item.getJobsId()));
+				if (mapDept.get(item.getDeptId()) != null && !StringUtils.isEmpty(item.getDeptId())) {
+					item.setDeptName(mapDept.get(item.getDeptId()).getName());
+					item.setAreaId(mapDept.get(item.getDeptId()).getAreaId());
+					SysArea sysArea = areaService.querySysAreaById(mapDept.get(item.getDeptId()).getAreaId());
+					if (sysArea != null) {
+						item.setAreaName(sysArea.getName());
+					}
+				}
+			}
+
+			deptItem.setUsers(listUserItem);
+			listDeptItem.add(deptItem);
+		}
+		dtoResponse.setData(listDeptItem);
+		// dtoResponse.initDemoData(DeptItem.class);
+		return dtoResponse;
+
+	}
+
+	@ApiDescription("全部警情查询;负责人：lihao;查询所有警情简短信息")
+	@RequestMapping("allAlertItem")
+	@ResponseBody
+	public DtoPublicResponsePager<AlertItem> allAlertItem(@Valid DtoAllAlertItemRequest dtoRequest) throws Exception {
+		DtoPublicResponsePager<AlertItem> dtoResponse = new DtoPublicResponsePager<>();
+
+		JwAlert jwAlert = new JwAlert();
+		Page p = ApiTool.convert(dtoRequest);
+		p.setPageSize(5000);
+		
+		jwAlert.setStatus(dtoRequest.getStatus());
+		jwAlert.setType(dtoRequest.getType());
+		List<JwAlert> list = alertService.queryAlertList(jwAlert, p, null, dtoRequest.getUid(),null);
+		List<AlertItem> listItem = FuncTool.copyPropertiesList(list, AlertItem.class);
+		dtoResponse.setData(listItem);
+		
+		
+		ApiTool.fillPagerData(p, dtoResponse);
+		return dtoResponse;
+	}
+
+	@ApiDescription("警情委派;负责人：lihao;")
+	@RequestMapping("alertDelegate")
+	@ResponseBody
+	public DtoPublicResponse alertDelegate(@Valid DtoAlertDelegateRequest dtoRequest) throws Exception {
+
+		String[] alertIds = dtoRequest.getAlertId().split(",");
+
+		for (String alertId : alertIds) {
+			JwAlert alert = alertService.queryAlert(alertId);
+			if (alert != null && alert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_UNCHECK) {
+				//委派时，已移交给其他派出所
+				SysDeptWithBLOBs dept = deptService.getPolicyDeptByUserId(dtoRequest.getUid());
+				if (dept != null && alert.getAlertDeptId() != null 
+						&& !dept.getId().equals(alert.getAlertDeptId())) {
+					throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_HANDOVER, Constants.API_MSG_ALERT_ALREADY_HANDOVER);
+				}
+				alertService.alertDelegate(alertId, dtoRequest.getUserId(), userService.queryUser(dtoRequest.getUid()));
+			} else {
+				if (alert != null && alert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_SOLVED) {
+					throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_SOLVED, Constants.API_MSG_ALERT_ALREADY_SOLVED);
+				}
+				if (alert != null && alert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_DELEGATE) {
+					throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_DELEGATE, Constants.API_MSG_ALERT_ALREADY_DELEGATE);
+				}
+				if (alert != null && alert.getStatus() == CommonDict.AUDIT_STATUS_ALERT_APPRAISE) {
+					throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_SOLVED, Constants.API_MSG_ALERT_ALREADY_SOLVED);
+				}
+				if (alert == null) {
+					throw new Exception(Constants.API_MSG_ALERT_ID_INVALID);
+				}
+			}
+		}
+		return DtoPublicResponse.init();
+
+	}
+
+	@ApiDescription("警情查询;负责人：lihao")
+	@RequestMapping("queryAlert")
+	@ResponseBody
+	public DtoPublicResponsePager<AlertInfo> queryAlert(@Valid DtoQueryAlertRequest dtoRequest) throws Exception {
+		DtoPublicResponsePager<AlertInfo> dtoResponse = new DtoPublicResponsePager<AlertInfo>();
+		long s = System.currentTimeMillis();
+
+		List<JwAlert> listAlert = null;
+		List<AlertInfo> alerts = null;
+		if (StringUtils.isEmpty(dtoRequest.getAlertIds())) {
+			Page p = ApiTool.convert(dtoRequest);
+			listAlert = alertService.queryAlertList(FuncTool.copyPropertiesClass(dtoRequest, JwAlert.class), p,
+					dtoRequest.getKeyword(), dtoRequest.getUid(),dtoRequest.getClassify());
+			alerts = FuncTool.copyPropertiesList(listAlert, AlertInfo.class);
+			ApiTool.fillPagerData(p, dtoResponse);
+		} else {
+			listAlert = alertService.queryAlertList(dtoRequest.getAlertIds().split(","));
+			alerts = FuncTool.copyPropertiesList(listAlert, AlertInfo.class);
+		}
+
+		queryAlertLogic(listAlert, alerts);
+		long e = System.currentTimeMillis();
+		log.info("queryAlert cost {}", (e - s));
+		dtoResponse.setData(alerts);
+		return dtoResponse;
+
+	}
+
+	private void queryAlertLogic(List<JwAlert> listAlert, List<AlertInfo> alerts) throws Exception {
+
+		if (listAlert == null || listAlert.size() == 0) {
+			return;
+		}
+		int count = 0;
+		for (JwAlert item : listAlert) {
+			// 设置报警人信息
+			SysUser sysUser = userService.queryUser(item.getCreatorId());
+			alerts.get(count).setAlertUserId(sysUser.getId());
+			alerts.get(count).setAlertUserName(sysUser.getUserName());
+			alerts.get(count).setAlertUserImg(sysUser.getImg());
+			alerts.get(count).setCellphone(sysUser.getPhone());
+			alerts.get(count).setAlertId(item.getId());
+			alerts.get(count).setAlertUserRealname(sysUser.getRealname());
+
+			// 如果是委派， 设置当前处理人和委派人
+			if (item.getStatus() == CommonDict.AUDIT_STATUS_ALERT_DELEGATE) {
+				List<SysUser> polices = alertService.queryDelegateUsers(item.getId());
+				if (polices != null && polices.size() > 0) {
+					alerts.get(count).setDelegatePolice(FuncTool.copyPropertiesClass(polices.get(0), UserItem.class));
+					alerts.get(count).setCurPolice(FuncTool.copyPropertiesClass(polices.get(1), UserItem.class));
+				}
+
+			}
+			count++;
+		}
+
+		for (AlertInfo ai : alerts) {
+			List<AlertLog> alertLog = new ArrayList<>();
+			// 设置报警LOG
+			SysUser sysUser = userService.queryUser(ai.getAlertUserId());
+			AlertLog log = new AlertLog();
+			if (sysUser != null) {
+				log.setCreateTime(ai.getAlertTime());
+				log.setTitle("报警");
+				log.setDescription("");
+				log.setUserId(sysUser.getId());
+				log.setUserImg(sysUser.getImg());
+				log.setUserName(sysUser.getUserName());
+				log.setRealname(sysUser.getRealname());
+				alertLog.add(log);
+			}
+			// 查询审核日志LOG
+			List<SysAuditRecordWithBLOBs> list = alertService.queryAuditRecordByApplyId(ai.getAlertId());
+			JwAlertAppraise alertAppraise = null;
+			if(ai.getStatus().intValue() == CommonDict.AUDIT_STATUS_ALERT_SOLVED){
+				//查评价反馈
+				alertAppraise = alertService.queryAlertAppraiseByApplyId(ai.getAlertId());
+			}
+			for (SysAuditRecordWithBLOBs item : list) {
+				sysUser = userService.queryUser(item.getUserId());
+				if (sysUser != null) {
+					log = new AlertLog();
+					log.setCreateTime(DateTool.formatDateTime(item.getAuditTime()));
+					log.setDescription(item.getRemark());
+					if (item.getCurStatus() == CommonDict.AUDIT_STATUS_ALERT_APPRAISE) {
+						log.setTitle("解除警情");
+					}
+					if (item.getCurStatus() == CommonDict.AUDIT_STATUS_ALERT_DELEGATE) {
+						log.setTitle("委派警情");
+					}
+					if (item.getCurStatus() == CommonDict.AUDIT_STATUS_ALERT_SOLVED) {
+						log.setTitle("评价反馈");
+						log.setDescription(null);
+					}
+					if (item.getCurStatus() == CommonDict.AUDIT_STATUS_ALERT_HANDOVER) {
+						log.setTitle("移交警情");
+					}
+					log.setUserId(sysUser.getId());
+					log.setUserImg(sysUser.getImg());
+					log.setUserName(sysUser.getUserName());
+					log.setRealname(sysUser.getRealname());
+					//评价反馈记录
+					if (alertAppraise != null && item.getCurStatus() == CommonDict.AUDIT_STATUS_ALERT_SOLVED) {
+						log.setFeedbackResult(alertAppraise.getFeedbackResult());
+						log.setProcessingEfficiency(alertAppraise.getProcessingEfficiency());
+						log.setTurningSpeed(alertAppraise.getTurningSpeed());
+						int rate = alertAppraise.getFeedbackResult() + alertAppraise.getProcessingEfficiency() + alertAppraise.getTurningSpeed();
+						if(rate < 6){
+							log.setRate(3);
+						}
+						if(rate >=6 && rate < 10){
+							log.setRate(2);
+						}
+						if(rate >= 10){
+							log.setRate(1);
+						}
+					}
+					alertLog.add(log);
+				}
+			}
+			ai.setLogs(alertLog);
+		}
+
+	}
+
+	@ApiDescription("警情解除;负责人：lihao")
+	@RequestMapping("releaseAlert")
+	@ResponseBody
+	public DtoPublicResponse releaseAlert(@Valid DtoOperateAlertRequest dtoRequest) throws Exception {
+
+		String[] ss = dtoRequest.getAlertIds().split(",");
+		for (String item : ss) {
+			JwAlert alert = alertService.queryAlert(item);
+			String userId = null;
+			SysAppointedRecordExample sarExample = new SysAppointedRecordExample();
+			sarExample.createCriteria().andAlertIdEqualTo(alert.getId());
+			List<SysAppointedRecord> recordList = sysAppointedRecordMapper.selectByExample(sarExample);
+			if (recordList != null && recordList.size() > 0) {
+				userId = recordList.get(0).getUserId();
+			}
+			//已被委派的警情，只有被委派的人员能解除
+			if (alert != null && alert.getStatus().intValue() == CommonDict.AUDIT_STATUS_ALERT_DELEGATE) {
+				if (!dtoRequest.getUid().equals(userId)){
+					throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_DELEGATE, Constants.API_MSG_ALERT_ALREADY_DELEGATE);
+				}
+			}
+			//解除时，已移交给其他派出所
+			SysDeptWithBLOBs dept = deptService.getPolicyDeptByUserId(dtoRequest.getUid());
+			if (dept != null && alert != null 
+					&& alert.getAlertDeptId() != null 
+					&& !dept.getId().equals(alert.getAlertDeptId())) {
+				throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_HANDOVER, Constants.API_MSG_ALERT_ALREADY_HANDOVER);
+			}
+			if (alert != null 
+					&& alert.getStatus().intValue() != CommonDict.AUDIT_STATUS_ALERT_SOLVED
+					&& alert.getStatus().intValue() != CommonDict.AUDIT_STATUS_ALERT_APPRAISE) {
+				JwAlert jwAlert = FuncTool.copyPropertiesClass(dtoRequest, JwAlert.class);
+				jwAlert.setAlertCategory(dtoRequest.getAlertCategory());
+				if(dtoRequest.getClassify() != null){
+					jwAlert.setClassify(dtoRequest.getClassify());
+				}
+				//警情和一键报警解除后状态为待评价，随手记解除后为已完成
+				if (alert.getType().intValue() == 2) {
+					//产品确认随手记解除后为待评价
+					jwAlert.setStatus(CommonDict.AUDIT_STATUS_ALERT_APPRAISE);
+				} else {
+					jwAlert.setStatus(CommonDict.AUDIT_STATUS_ALERT_APPRAISE);
+				}
+				jwAlert.setId(item);
+				jwAlert.setCreatorId(alert.getCreatorId());
+				alertService.releaseAlert(dtoRequest.getUid(), jwAlert);
+			} else {
+				throw SystemException.init(Constants.API_CODE_ALERT_ALREADY_SOLVED, Constants.API_MSG_ALERT_ALREADY_SOLVED);
+			}
+		}
+		return DtoPublicResponse.init();
+
+	}
+
+	@ApiDescription("指挥调度-在线民警列表;负责人：jinsu")
+	@RequestMapping("policeNearBy")
+	@ResponseBody
+	public DtoPublicResponseList<OnlinePolice> policeNearBy(@Valid DtoAlertCommandRequest dtoRequest)  throws Exception{
+		DtoPublicResponseList<OnlinePolice> resp = new DtoPublicResponseList<OnlinePolice>();
+		String alertId = dtoRequest.getAlertId();
+		String uid = dtoRequest.getUid();
+		resp.setData(alertService.queryNearByPolice(alertId, uid));
+		return resp;
+	}
+	
+	
+	@ApiDescription("警情评价;负责人：hongli")
+	@RequestMapping("appraiseAlert")
+	@ResponseBody
+	public DtoPublicResponse appraiseAlert(@Valid DtoAppraiseAlertRequest dtoRequest) throws Exception {
+		JwAlertAppraise alertAppraise = new JwAlertAppraise();
+		alertAppraise.setAlertId(dtoRequest.getAlertId());
+		alertAppraise.setFeedbackResult(dtoRequest.getFeedbackResult());
+		alertAppraise.setProcessingEfficiency(dtoRequest.getProcessingEfficiency());
+		alertAppraise.setTurningSpeed(dtoRequest.getTurningSpeed());
+		alertAppraise.setCreateTime(Calendar.getInstance().getTime());
+		alertAppraise.setUserId(dtoRequest.getUid());
+		alertService.appraiseAlert(alertAppraise);
+		return DtoPublicResponse.init();
+	}
+	
+	@ApiDescription("警情移交;负责人：hongli")
+	@RequestMapping("handoverAlert")
+	@ResponseBody
+	public DtoPublicResponse handoverAlert(@Valid DtoHandoverAlertRequest dtoRequest) throws Exception {
+		String[] alertIds = dtoRequest.getAlertId().split(",");
+		for (String alertId : alertIds) {
+			alertService.handoverAlert(alertId, dtoRequest.getDeptId(), dtoRequest.getUid());
+		}
+		return DtoPublicResponse.init();
+	}
+	
+	@ApiDescription("新警情查询;已废弃;负责人:lihao")
+	@RequestMapping("getNewAlert")
+	@ResponseBody
+	public DtoPublicResponsePager<AlertInfo> getNewAlert(@Valid DtoPublicRequest dtoRequest) throws Exception {
+		DtoPublicResponsePager<AlertInfo> pageInfo = new DtoPublicResponsePager<AlertInfo>();
+//		String deptId = userService.queryUser(dtoRequest.getUid()).getDeptId();
+//		String str = stringRedisTemplate.boundValueOps(CommonDict.REDIS_ALERT_NEWS).get();
+//		DtoQueryAlertRequest dtoQRequest = new DtoQueryAlertRequest();
+//		if (!StringUtils.isEmpty(str)) {
+//			JSONObject jo = JSONObject.fromObject(str);
+//			String alertRead = stringRedisTemplate.boundValueOps(CommonDict.REDIS_ALERT_READ_UID).get();
+//			if (!StringUtils.isEmpty(alertRead)) {
+//				JSONObject json = JSONObject.fromObject(alertRead);
+//				String isReadAlerts = json.getString(dtoRequest.getUid());// 已读消息
+//				if (jo.getString(deptId).length() > isReadAlerts.length()) {
+//					// 存在消息多余已读消息
+//					dtoQRequest.setAlertIds(jo.getString(deptId).substring(jo.getString(deptId).indexOf(isReadAlerts.length() + 1)));
+//					dtoQRequest.setStatus(0);
+//					pageInfo = queryAlert(dtoQRequest);
+//				}
+//			} else {
+//				dtoQRequest.setAlertIds(jo.getString(deptId));
+//				dtoQRequest.setStatus(0);
+//				pageInfo = queryAlert(dtoQRequest);
+//			}
+//			// if (jo.containsKey(deptId)) {
+//			// dtoQRequest.setAlertIds(jo.getString(deptId));
+//			// dtoQRequest.setStatus(0);
+//			// pageInfo = queryAlert(dtoQRequest);
+//			// }
+//		}
+
+		return pageInfo;
+
+	}
+	
+	@ApiDescription("新警情已读;负责人:lihao")
+	@RequestMapping("readNewAlert")
+	@ResponseBody
+	public DtoPublicResponse readNewAlert(@Valid DtoReadNewAlertRequest dtoRequest) throws Exception {
+		DtoPublicResponse dtoResponse = new DtoPublicResponse();
+		stringRedisTemplate.boundSetOps(CommonDict.REDIS_ALERT_NEWS).add(dtoRequest.getAlertId()+dtoRequest.getUid());
+		return dtoResponse;
+	}
+	
+}

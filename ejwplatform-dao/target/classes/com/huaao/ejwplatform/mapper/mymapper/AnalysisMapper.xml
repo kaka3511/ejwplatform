@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.huaao.ejwplatform.mapper.mymapper.AnalysisMapper" >
+
+<!--             shilei            -->
+<sql id="By_user_Example_Where_Clause" >
+   <foreach collection="userExa.oredCriteria" item="criteria" separator="or" >
+     <if test="criteria.valid" >
+        <foreach collection="criteria.criteria" item="criterion" >
+          <choose >
+            <when test="criterion.noValue" >
+              and u.${criterion.condition}
+            </when>
+            <when test="criterion.singleValue" >
+              and u.${criterion.condition} #{criterion.value}
+            </when>
+            <when test="criterion.betweenValue" >
+              and u.${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+            </when>
+            <when test="criterion.listValue" >
+              and u.${criterion.condition}
+              <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                #{listItem}
+              </foreach>
+            </when>
+          </choose>
+        </foreach>
+     </if>
+   </foreach>
+</sql>
+<sql id="By_dept_Example_Where_Clause" >
+   <foreach collection="deptExa.oredCriteria" item="criteria" separator="or" >
+     <if test="criteria.valid" >
+        <foreach collection="criteria.criteria" item="criterion" >
+          <choose >
+            <when test="criterion.noValue" >
+              and d.${criterion.condition}
+            </when>
+            <when test="criterion.singleValue" >
+              and d.${criterion.condition} #{criterion.value}
+            </when>
+            <when test="criterion.betweenValue" >
+              and d.${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+            </when>
+            <when test="criterion.listValue" >
+              and d.${criterion.condition}
+              <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                #{listItem}
+              </foreach>
+            </when>
+          </choose>
+        </foreach>
+     </if>
+   </foreach>
+</sql>
+<select id="countByMutiExa" parameterType="map" resultType="java.lang.Integer" >
+  select count(1) from sys_user u,sys_dept d where u.dept_id = d.id
+  <include refid="By_user_Example_Where_Clause" />
+  <include refid="By_dept_Example_Where_Clause" /> 
+</select>
+
+<select id="getDayAlertChart" resultType="map" parameterType="map" >
+SELECT 
+    date_format(alert_time, '%Y-%m-%d') as alertdate, count(1) as total
+FROM
+    jw_alert a,
+    sys_user u,
+    sys_dept d
+where
+    a.creator_id = u.id and u.dept_id = d.id and a.save_flag=0 
+<if test="status != null and status == 1">
+and (a.status=1 or a.status=6) and a.alert_category =1 
+</if>
+<if test="status == null">
+and (a.alert_category =1 or a.status = 0)
+</if>
+and d.level &gt; 5
+<if test="deptCode!=null">
+and d.code like CONCAT(#{deptCode},'%' )
+</if>
+<if test="linkDeptId!=null">
+and d.link_dept_id = #{linkDeptId}
+</if>
+<if test="deptId!=null">
+and d.id = #{deptId}
+</if>
+and a.alert_time between #{startTime} and #{endTime}
+group by date_format(alert_time, '%Y-%m-%d')
+</select>
+
+<select id="getDeptAlertChartJW" resultType="map" parameterType="map" >
+select count(t.aid) as total, (select name from sys_dept where id=t.did ) as name
+from (select a.id as aid,
+	d.link_dept_id  as did from 
+    jw_alert a,
+    sys_user u,
+    sys_dept d
+where
+    a.creator_id = u.id and u.dept_id = d.id and a.save_flag=0
+and (a.alert_category =1 or a.status = 0)
+and a.alert_time between #{startTime} and #{endTime}
+and d.type = '小区'
+and d.link_dept_id is not null
+and d.code like CONCAT(#{deptCode},'%')
+union 
+select a.id as aid,d.id as did  from 
+    jw_alert a,
+    sys_user u,
+    sys_dept d
+where
+    a.creator_id = u.id and u.dept_id = d.id and a.save_flag=0
+and (a.alert_category =1 or a.status = 0)
+and a.alert_time between #{startTime} and #{endTime}
+and d.level = 6
+and d.type = '公安'
+and d.code like CONCAT(#{deptCode},'%')) t
+group by t.did
+<if test="deptId!=null">
+having t.did = #{deptId}
+</if>
+</select>
+
+<select id="getDeptAlertChartXQ" resultType="map" parameterType="map" >
+select count(t.aid) as total, (select name from sys_dept where id=t.did ) as name,t.did
+from (select a.id as aid,
+	d.id  as did ,
+    d.link_dept_id
+from 
+    jw_alert a,
+    sys_user u,
+    sys_dept d
+where
+    a.creator_id = u.id and u.dept_id = d.id and a.save_flag=0
+and (a.alert_category =1 or a.status = 0)
+and a.alert_time between #{startTime} and #{endTime}
+and d.type = '小区'
+and d.link_dept_id is not null) t
+where t.link_dept_id = #{jwDeptId}
+group by t.did
+<if test="deptId!=null">
+having t.did = #{deptId}
+</if>
+</select>
+
+<!--             lihao            -->
+<!-- 
+  &lt;  <   小于号                                           
+  &gt;  >   大于号
+  &amp; & 和
+  &apos; ’   单引号
+  &quot; " 双引号
+ -->
+<select id="policeAreaChartJobCount" resultType="java.util.HashMap" >
+SELECT
+	tj.name as jobName,
+	count(tj.name) as count  
+FROM
+	sys_user tu, sys_jobs tj, sys_dept tdd, sys_area ta 
+WHERE
+	tu.create_time &lt; #{0} and  tu.type=#{1} and tu.is_useable=1
+	and tu.dept_id=tdd.id and tu.jobs_id = tj.id and tdd.area_id = ta.id and auth=#{4}
+	and tu.dept_id IN (
+		SELECT id 	FROM sys_dept td
+		WHERE td.code LIKE  #{2} and td.code != #{3} and td.type = '公安'
+		
+	)
+group by tj.name  
+</select>
+
+<select id="policeAreaChartDeptCount" resultType="java.lang.Integer">
+SELECT
+	count(*) as count
+FROM
+	sys_user tu, sys_jobs tj, sys_dept tdd, sys_area ta 
+WHERE
+	tu.create_time &lt; #{0} and  tu.type=#{1} and tu.is_useable=1
+	and tu.dept_id=tdd.id and tu.jobs_id = tj.id and tdd.area_id = ta.id and auth=#{4}
+	and tu.dept_id IN (
+		SELECT id 	FROM sys_dept td
+		WHERE td.code LIKE #{2}  and td.type = '公安'
+	)
+</select>
+
+<!--   jingsu  -->
+<!-- 查询下属部门的案发情况 -->
+<select id="getAlertMapChart" resultType="map" parameterType="map">
+    SELECT al.location, al.bd_location, count(1) num FROM standard_ejingwu.jw_alert al, sys_user su, sys_dept sd 
+    where date_format(al.create_time, '%Y-%m-%d' ) between #{startTime}  and #{endTime} and al.save_flag=0
+    and (al.alert_category = 1 or al.alert_category is NULL) and al.creator_id = su.id and su.dept_id = sd.id and sd.code like #{deptCode}"%"
+    group by al.location
+</select>
+
+
+
+
+
+
+<!--             hongli            -->
+<!-- 查询总共已认证的警力 -->
+<select id="getTotalPoliceChartBar"  resultType="map"   parameterType="map">
+  <foreach collection="dateList" index="index" item="item" separator="UNION ALL">
+	SELECT date_format(#{item}, '%Y-%m-%d' ) as audited_time, count(distinct su.id) num 
+	FROM standard_ejingwu.sys_user su , sys_dept sd 
+	 where  su.dept_id = sd.id and su.auth='authed' and su.is_useable=1  and sd.type = '公安' and sd.level='6'
+	 and su.audited_time &lt;= #{item}  
+	 and sd.code LIKE #{deptCode}"%"
+  </foreach> 
+</select>
+<!-- 查询总共已认证的警力 ，上线警力-->
+<select id="getOnlinePoliceChartBar"  resultType="map"   parameterType="map">
+	SELECT date_format(sl.create_time, '%Y-%m-%d' ) as audited_time, count(distinct su.id) num 
+	FROM standard_ejingwu.sys_user  su  , sys_dept sd , sys_user_log sl where su.dept_id = sd.id and su.id=sl.user_id 
+	 and su.auth='authed'  and su.is_useable=1 and sd.type = '公安' and sd.level='6' and sl.action=1 and sl.create_time between #{startTime}  and #{endTime}
+	 and sd.code LIKE #{deptCode}"%"
+	 group by date_format(sl.create_time, '%Y-%m-%d' )
+</select>
+<!-- 查询上线警力类型及数量-->
+<select id="getPoliceChartPie"  resultType="map"   parameterType="map">
+ select deptName ,sum(count) as count from (
+	select   sd.name as deptName,count(distinct su.id) as count from sys_user su , sys_dept sd,  sys_user_log sl
+		where  su.dept_id = sd.id  and su.id=sl.user_id 
+		and su.auth='authed'  and su.is_useable=1  and sd.type = '公安' and sd.level='6' and sl.action=1 and sl.create_time between #{startTime} and #{endTime} 
+		and sd.code LIKE #{deptCode}"%"
+		group by sd.name
+	union  
+    select sd.name as deptName,0 as count from  sys_dept sd where sd.type = '公安' and sd.level='6' and sd.code LIKE  #{deptCode}"%"
+)t group by deptName order by deptName
+</select>
+
+<!-- 查询警情完成情况-->
+<select id="queryAlertDonePaiChart"  resultType="java.lang.Integer"  parameterType="map">
+	select count(1) from jw_alert where  alert_dept_id=#{deptId} and unix_timestamp(alert_time)>=unix_timestamp(#{startTime}) and status in
+	<foreach collection="dateList" index="index"   item="item" 
+            open="(" close=")" separator=",">  
+              #{item}  
+        </foreach>  
+</select>
+
+<!-- 查询已经委派记录-->
+<select id="queryAlertAppointed"  resultType="java.lang.Integer">
+	select count(1)  from jw_alert j where  j.alert_dept_id=#{0}  and j.`status`=2  and  unix_timestamp(j.alert_time)>=unix_timestamp(#{1})
+</select>
+
+<!-- 查询已经评价警情-->
+<select id="queryAlertAppraise" resultType="java.lang.Integer">
+	select count(1) from (select
+	(turning_speed+processing_efficiency+feedback_result) as avgs,j.id
+	from jw_alert_appraise a,jw_alert j where a.alert_id=j.id and
+	j.alert_dept_id=#{0} and  unix_timestamp(j.alert_time)>=unix_timestamp(#{3}) group by j.id having
+	avgs&gt;=#{1} and avgs&lt;#{2} ) as avgAppraise
+</select>
+
+
+</mapper>

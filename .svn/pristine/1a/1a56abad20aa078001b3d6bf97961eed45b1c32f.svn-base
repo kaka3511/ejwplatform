@@ -1,0 +1,82 @@
+package com.huaao.ejwplatform.api.control;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.validation.Valid;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.huaao.ejwplatform.api.dto.bean.ToDoNumInfo;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicRequest;
+import com.huaao.ejwplatform.api.dto.pub.DtoPublicResponseObj;
+import com.huaao.ejwplatform.common.Page;
+import com.huaao.ejwplatform.common.web.ApiDescription;
+import com.huaao.ejwplatform.dao.JwAlert;
+import com.huaao.ejwplatform.dao.SysDeptWithBLOBs;
+import com.huaao.ejwplatform.dao.SysMessageExampleExt;
+import com.huaao.ejwplatform.service.AlertService;
+import com.huaao.ejwplatform.service.CriminalService;
+import com.huaao.ejwplatform.service.MessageService;
+import com.huaao.ejwplatform.service.UserService;
+import com.huaao.ejwplatform.service.system.DeptService;
+
+import net.sf.json.JSONObject;
+
+@ApiDescription("待办事宜")
+@Controller
+@RequestMapping("api/todolist")
+public class ToDoListController {
+	private Logger log = LoggerFactory.getLogger(this.getClass());
+
+	@Autowired
+	private AlertService alertService;
+	@Autowired
+	private UserService userService;
+	@Autowired
+	private MessageService messageService;
+	@Autowired
+	private DeptService deptService;
+
+	@Autowired
+	private CriminalService criminalService;
+
+	@RequestMapping("queryToDoListNum")
+	@ResponseBody
+	@ApiDescription("查询待办事宜数目;负责人：luping")
+	public DtoPublicResponseObj<ToDoNumInfo> createAlert(@Valid DtoPublicRequest dtoRequest) throws Exception {
+		DtoPublicResponseObj<ToDoNumInfo> ar = new DtoPublicResponseObj<>();
+		//警情
+		ToDoNumInfo doNumInfo = new ToDoNumInfo();
+		Page p = new Page(1, 1000);
+		JwAlert jwAlert = new JwAlert();
+		jwAlert.setStatus(0);
+		Integer alertSum = alertService.queryAlertList(jwAlert, p, dtoRequest.getKeyword(), dtoRequest.getUid(), null).size();// 警情数量
+		SysMessageExampleExt msg = new SysMessageExampleExt();
+		SysDeptWithBLOBs dept = deptService.getDeptByUserId(dtoRequest.getUid());
+		// 咨询服务
+		msg.setStatus(2);
+		msg.setType(1);
+		msg.setDeptCode( dept.getCode());
+		Integer messagexxSum = messageService.countMessage(msg);
+		//所长信箱
+		msg.setType(2);
+		Integer messageSum = messageService.countMessage(msg);
+		//实名认证
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("deptCode", dept.getCode());
+		Integer auditCount = userService.queryUserAuditCount(map);
+		//网上办事
+		Page pages = new Page(1, 1000);
+		Integer criminaNum = criminalService.selectCriminalList(pages, "create_time desc", null, null, "0", dtoRequest.getUid(),null).size();
+		doNumInfo.setSumToDo(alertSum + messagexxSum + messageSum + auditCount + criminaNum);
+		ar.setData(doNumInfo);
+		return ar;
+	}
+
+}

@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.huaao.ejwplatform.mapper.SysAuditRecordMapper" >
+  <resultMap id="BaseResultMap" type="com.huaao.ejwplatform.dao.SysAuditRecord" >
+    <id column="id" property="id" jdbcType="VARCHAR" />
+    <result column="type" property="type" jdbcType="TINYINT" />
+    <result column="apply_id" property="applyId" jdbcType="VARCHAR" />
+    <result column="status" property="status" jdbcType="TINYINT" />
+    <result column="cur_status" property="curStatus" jdbcType="INTEGER" />
+    <result column="audit_time" property="auditTime" jdbcType="TIMESTAMP" />
+    <result column="remark" property="remark" jdbcType="VARCHAR" />
+    <result column="user_id" property="userId" jdbcType="VARCHAR" />
+    <result column="realname" property="realname" jdbcType="VARCHAR" />
+    <result column="address" property="address" jdbcType="VARCHAR" />
+    <result column="policeman_code" property="policemanCode" jdbcType="VARCHAR" />
+  </resultMap>
+  <resultMap id="ResultMapWithBLOBs" type="com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs" extends="BaseResultMap" >
+    <result column="result_imgs" property="resultImgs" jdbcType="LONGVARCHAR" />
+    <result column="result_voices" property="resultVoices" jdbcType="LONGVARCHAR" />
+    <result column="result_videos" property="resultVideos" jdbcType="LONGVARCHAR" />
+  </resultMap>
+  <sql id="Example_Where_Clause" >
+    <where >
+      <foreach collection="oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Update_By_Example_Where_Clause" >
+    <where >
+      <foreach collection="example.oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Base_Column_List" >
+    id, type, apply_id, status, cur_status, audit_time, remark, user_id, realname, address, 
+    policeman_code
+  </sql>
+  <sql id="Blob_Column_List" >
+    result_imgs, result_voices, result_videos
+  </sql>
+  <select id="selectByExampleWithBLOBs" resultMap="ResultMapWithBLOBs" parameterType="com.huaao.ejwplatform.dao.SysAuditRecordExample" >
+    select
+    <if test="distinct" >
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    ,
+    <include refid="Blob_Column_List" />
+    from sys_audit_record
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null" >
+      order by ${orderByClause}
+    </if>
+  </select>
+  <select id="selectByExample" resultMap="BaseResultMap" parameterType="com.huaao.ejwplatform.dao.SysAuditRecordExample" >
+    select
+    <if test="distinct" >
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    from sys_audit_record
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null" >
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null" >
+      <if test="offset != null" >
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null" >
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <select id="selectByPrimaryKey" resultMap="ResultMapWithBLOBs" parameterType="java.lang.String" >
+    select 
+    <include refid="Base_Column_List" />
+    ,
+    <include refid="Blob_Column_List" />
+    from sys_audit_record
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String" >
+    delete from sys_audit_record
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <delete id="deleteByExample" parameterType="com.huaao.ejwplatform.dao.SysAuditRecordExample" >
+    delete from sys_audit_record
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </delete>
+  <insert id="insert" parameterType="com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs" >
+    insert into sys_audit_record (id, type, apply_id, 
+      status, cur_status, audit_time, 
+      remark, user_id, realname, 
+      address, policeman_code, result_imgs, 
+      result_voices, result_videos)
+    values (#{id,jdbcType=VARCHAR}, #{type,jdbcType=TINYINT}, #{applyId,jdbcType=VARCHAR}, 
+      #{status,jdbcType=TINYINT}, #{curStatus,jdbcType=INTEGER}, #{auditTime,jdbcType=TIMESTAMP}, 
+      #{remark,jdbcType=VARCHAR}, #{userId,jdbcType=VARCHAR}, #{realname,jdbcType=VARCHAR}, 
+      #{address,jdbcType=VARCHAR}, #{policemanCode,jdbcType=VARCHAR}, #{resultImgs,jdbcType=LONGVARCHAR}, 
+      #{resultVoices,jdbcType=LONGVARCHAR}, #{resultVideos,jdbcType=LONGVARCHAR})
+  </insert>
+  <insert id="insertSelective" parameterType="com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs" >
+    insert into sys_audit_record
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        id,
+      </if>
+      <if test="type != null" >
+        type,
+      </if>
+      <if test="applyId != null" >
+        apply_id,
+      </if>
+      <if test="status != null" >
+        status,
+      </if>
+      <if test="curStatus != null" >
+        cur_status,
+      </if>
+      <if test="auditTime != null" >
+        audit_time,
+      </if>
+      <if test="remark != null" >
+        remark,
+      </if>
+      <if test="userId != null" >
+        user_id,
+      </if>
+      <if test="realname != null" >
+        realname,
+      </if>
+      <if test="address != null" >
+        address,
+      </if>
+      <if test="policemanCode != null" >
+        policeman_code,
+      </if>
+      <if test="resultImgs != null" >
+        result_imgs,
+      </if>
+      <if test="resultVoices != null" >
+        result_voices,
+      </if>
+      <if test="resultVideos != null" >
+        result_videos,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="type != null" >
+        #{type,jdbcType=TINYINT},
+      </if>
+      <if test="applyId != null" >
+        #{applyId,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null" >
+        #{status,jdbcType=TINYINT},
+      </if>
+      <if test="curStatus != null" >
+        #{curStatus,jdbcType=INTEGER},
+      </if>
+      <if test="auditTime != null" >
+        #{auditTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="remark != null" >
+        #{remark,jdbcType=VARCHAR},
+      </if>
+      <if test="userId != null" >
+        #{userId,jdbcType=VARCHAR},
+      </if>
+      <if test="realname != null" >
+        #{realname,jdbcType=VARCHAR},
+      </if>
+      <if test="address != null" >
+        #{address,jdbcType=VARCHAR},
+      </if>
+      <if test="policemanCode != null" >
+        #{policemanCode,jdbcType=VARCHAR},
+      </if>
+      <if test="resultImgs != null" >
+        #{resultImgs,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="resultVoices != null" >
+        #{resultVoices,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="resultVideos != null" >
+        #{resultVideos,jdbcType=LONGVARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <select id="countByExample" parameterType="com.huaao.ejwplatform.dao.SysAuditRecordExample" resultType="java.lang.Integer" >
+    select count(*) from sys_audit_record
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </select>
+  <update id="updateByExampleSelective" parameterType="map" >
+    update sys_audit_record
+    <set >
+      <if test="record.id != null" >
+        id = #{record.id,jdbcType=VARCHAR},
+      </if>
+      <if test="record.type != null" >
+        type = #{record.type,jdbcType=TINYINT},
+      </if>
+      <if test="record.applyId != null" >
+        apply_id = #{record.applyId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.status != null" >
+        status = #{record.status,jdbcType=TINYINT},
+      </if>
+      <if test="record.curStatus != null" >
+        cur_status = #{record.curStatus,jdbcType=INTEGER},
+      </if>
+      <if test="record.auditTime != null" >
+        audit_time = #{record.auditTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="record.remark != null" >
+        remark = #{record.remark,jdbcType=VARCHAR},
+      </if>
+      <if test="record.userId != null" >
+        user_id = #{record.userId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.realname != null" >
+        realname = #{record.realname,jdbcType=VARCHAR},
+      </if>
+      <if test="record.address != null" >
+        address = #{record.address,jdbcType=VARCHAR},
+      </if>
+      <if test="record.policemanCode != null" >
+        policeman_code = #{record.policemanCode,jdbcType=VARCHAR},
+      </if>
+      <if test="record.resultImgs != null" >
+        result_imgs = #{record.resultImgs,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="record.resultVoices != null" >
+        result_voices = #{record.resultVoices,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="record.resultVideos != null" >
+        result_videos = #{record.resultVideos,jdbcType=LONGVARCHAR},
+      </if>
+    </set>
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExampleWithBLOBs" parameterType="map" >
+    update sys_audit_record
+    set id = #{record.id,jdbcType=VARCHAR},
+      type = #{record.type,jdbcType=TINYINT},
+      apply_id = #{record.applyId,jdbcType=VARCHAR},
+      status = #{record.status,jdbcType=TINYINT},
+      cur_status = #{record.curStatus,jdbcType=INTEGER},
+      audit_time = #{record.auditTime,jdbcType=TIMESTAMP},
+      remark = #{record.remark,jdbcType=VARCHAR},
+      user_id = #{record.userId,jdbcType=VARCHAR},
+      realname = #{record.realname,jdbcType=VARCHAR},
+      address = #{record.address,jdbcType=VARCHAR},
+      policeman_code = #{record.policemanCode,jdbcType=VARCHAR},
+      result_imgs = #{record.resultImgs,jdbcType=LONGVARCHAR},
+      result_voices = #{record.resultVoices,jdbcType=LONGVARCHAR},
+      result_videos = #{record.resultVideos,jdbcType=LONGVARCHAR}
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExample" parameterType="map" >
+    update sys_audit_record
+    set id = #{record.id,jdbcType=VARCHAR},
+      type = #{record.type,jdbcType=TINYINT},
+      apply_id = #{record.applyId,jdbcType=VARCHAR},
+      status = #{record.status,jdbcType=TINYINT},
+      cur_status = #{record.curStatus,jdbcType=INTEGER},
+      audit_time = #{record.auditTime,jdbcType=TIMESTAMP},
+      remark = #{record.remark,jdbcType=VARCHAR},
+      user_id = #{record.userId,jdbcType=VARCHAR},
+      realname = #{record.realname,jdbcType=VARCHAR},
+      address = #{record.address,jdbcType=VARCHAR},
+      policeman_code = #{record.policemanCode,jdbcType=VARCHAR}
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByPrimaryKeySelective" parameterType="com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs" >
+    update sys_audit_record
+    <set >
+      <if test="type != null" >
+        type = #{type,jdbcType=TINYINT},
+      </if>
+      <if test="applyId != null" >
+        apply_id = #{applyId,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null" >
+        status = #{status,jdbcType=TINYINT},
+      </if>
+      <if test="curStatus != null" >
+        cur_status = #{curStatus,jdbcType=INTEGER},
+      </if>
+      <if test="auditTime != null" >
+        audit_time = #{auditTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="remark != null" >
+        remark = #{remark,jdbcType=VARCHAR},
+      </if>
+      <if test="userId != null" >
+        user_id = #{userId,jdbcType=VARCHAR},
+      </if>
+      <if test="realname != null" >
+        realname = #{realname,jdbcType=VARCHAR},
+      </if>
+      <if test="address != null" >
+        address = #{address,jdbcType=VARCHAR},
+      </if>
+      <if test="policemanCode != null" >
+        policeman_code = #{policemanCode,jdbcType=VARCHAR},
+      </if>
+      <if test="resultImgs != null" >
+        result_imgs = #{resultImgs,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="resultVoices != null" >
+        result_voices = #{resultVoices,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="resultVideos != null" >
+        result_videos = #{resultVideos,jdbcType=LONGVARCHAR},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKeyWithBLOBs" parameterType="com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs" >
+    update sys_audit_record
+    set type = #{type,jdbcType=TINYINT},
+      apply_id = #{applyId,jdbcType=VARCHAR},
+      status = #{status,jdbcType=TINYINT},
+      cur_status = #{curStatus,jdbcType=INTEGER},
+      audit_time = #{auditTime,jdbcType=TIMESTAMP},
+      remark = #{remark,jdbcType=VARCHAR},
+      user_id = #{userId,jdbcType=VARCHAR},
+      realname = #{realname,jdbcType=VARCHAR},
+      address = #{address,jdbcType=VARCHAR},
+      policeman_code = #{policemanCode,jdbcType=VARCHAR},
+      result_imgs = #{resultImgs,jdbcType=LONGVARCHAR},
+      result_voices = #{resultVoices,jdbcType=LONGVARCHAR},
+      result_videos = #{resultVideos,jdbcType=LONGVARCHAR}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.SysAuditRecord" >
+    update sys_audit_record
+    set type = #{type,jdbcType=TINYINT},
+      apply_id = #{applyId,jdbcType=VARCHAR},
+      status = #{status,jdbcType=TINYINT},
+      cur_status = #{curStatus,jdbcType=INTEGER},
+      audit_time = #{auditTime,jdbcType=TIMESTAMP},
+      remark = #{remark,jdbcType=VARCHAR},
+      user_id = #{userId,jdbcType=VARCHAR},
+      realname = #{realname,jdbcType=VARCHAR},
+      address = #{address,jdbcType=VARCHAR},
+      policeman_code = #{policemanCode,jdbcType=VARCHAR}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+</mapper>

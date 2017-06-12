@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+
+<generatorConfiguration>
+
+<!-- mvn mybatis-generator:generate 
+	<classPathEntry location="/Users/sujin/work/repository/mysql/mysql-connector-java/5.1.21/mysql-connector-java-5.1.21.jar"/> 
+	-->
+    <context id="mysqlgenerator" targetRuntime="MyBatis3">
+		
+        <!-- domain 序列化 -->
+        <plugin type="org.mybatis.generator.plugins.SerializablePlugin">
+            <!-- 必须实现Serializable接口 -->
+            <property name="suppressJavaInterface" value="false"/>
+        </plugin>
+
+		<plugin type="com.xxg.mybatis.plugins.MySQLLimitPlugin" />
+		
+        <!-- 是否生成注释，为false时，生成注释 -->
+        <commentGenerator>
+            <property name="suppressAllComments" value="false"/>
+        </commentGenerator>
+       
+         <jdbcConnection driverClass="com.mysql.jdbc.Driver"
+                        connectionURL="jdbc:mysql://120.26.169.207:3306/standard_ejingwu" userId="root"
+                        password="827ef15430">
+            <property name="characterEncoding" value="utf-8"/>
+            <property name="useUnicode" value="true"/>
+        </jdbcConnection>
+
+        <javaTypeResolver>
+            <property name="forceBigDecimals" value="false"/>
+        </javaTypeResolver>
+
+        <!-- generate Model -->
+        <javaModelGenerator targetPackage="com.huaao.ejwplatform.dao"
+                            targetProject="src/main/java/">
+            <property name="enableSubPackages" value="true"/>
+            <property name="trimStrings" value="true"/>
+        </javaModelGenerator>
+
+        <!-- generate xml -->
+        <sqlMapGenerator targetPackage="com.huaao.ejwplatform.mapper"
+                         targetProject="src/main/java/">
+            <property name="enableSubPackages" value="true"/>
+        </sqlMapGenerator>
+
+        <!-- generate Mapper -->
+        <javaClientGenerator type="XMLMAPPER"
+                             targetPackage="com.huaao.ejwplatform.mapper" targetProject="src/main/java/">
+            <property name="enableSubPackages" value="true"/>
+        </javaClientGenerator>
+        
+      <!--  <table  tableName="sys_logs_login" > 
+         </table>
+        <table  tableName="jw_dept_information" > 
+        </table> -->
+        
+        <table  tableName="jw_entity" > 
+        <columnOverride column="type" javaType="Integer" />
+        </table>
+        
+        <table  tableName="sys_dept" > 
+        <columnOverride column="level" javaType="Integer" />
+        <columnOverride column="is_leaf" javaType="Integer" />
+        </table>
+        
+         <!-- <table  tableName="sys_message" > 
+        <columnOverride column="type" javaType="Integer" />
+        <columnOverride column="status" javaType="Integer" />
+        <columnOverride column="open" javaType="Integer" />
+        <columnOverride column="is_read" javaType="Integer" />
+        <columnOverride column="classify" javaType="Integer" />
+        </table> -->
+        
+ <!-- 
+ 	 <table  tableName="sys_appointed_record" > 
+                <columnOverride column="type" javaType="Integer" />
+        </table>
+ 	<table  tableName="jw_dept_information" > </table> 
+ 	<table  tableName="sys_message_appraise" > 
+        	<columnOverride column="turning_speed" javaType="Integer" />
+        	<columnOverride column="processing_efficiency" javaType="Integer" />
+        	<columnOverride column="feedback_result" javaType="Integer" />
+        </table>
+        <table  tableName="sys_message" > 
+        <columnOverride column="type" javaType="Integer" />
+        <columnOverride column="status" javaType="Integer" />
+        <columnOverride column="open" javaType="Integer" />
+        <columnOverride column="is_read" javaType="Integer" />
+        </table>
+		
+		<table  tableName="jw_functional_dept" > </table>
+		<table  tableName="jw_monitor" > 
+        </table>
+        
+         <table  tableName="jw_monitor_device" > 
+        </table>
+        
+         <table  tableName="jw_monitor_group" > 
+        </table>
+ 
+		<table  tableName="sys_user" > 
+        <columnOverride column="is_useable" javaType="Integer" />
+        <columnOverride column="is_online" javaType="Integer" />
+        <columnOverride column="version" javaType="Integer" />
+        </table>
+        <table  tableName="jw_alert_appraise" > 
+        	<columnOverride column="turning_speed" javaType="Integer" />
+        	<columnOverride column="processing_efficiency" javaType="Integer" />
+        	<columnOverride column="feedback_result" javaType="Integer" />
+
+        </table>
+
+		<table  tableName="jw_business_dept" > 
+        </table>
+        <table  tableName="jw_ems_info" > 
+        </table>
+        
+        <table  tableName="jw_dept_banner" > 
+        <columnOverride column="status" javaType="Integer" />
+        </table>
+        
+        <table  tableName="jw_ems" > 
+        </table>
+      
+          -->
+        <!--
+        <table tableName="jw_ems_status"></table>
+        
+		<table  tableName="jw_criminal_record" > 
+        	<columnOverride column="status" javaType="Integer" />
+        	<columnOverride column="has_record" javaType="Integer" />
+        	<columnOverride column="recieve_type" javaType="Integer" />
+        </table>
+		 
+		
+		
+		<table  tableName="sys_dept" > 
+        <columnOverride column="is_leaf" javaType="Integer" />
+        </table>
+        
+		<table  tableName="sys_audit_record" > 
+        <columnOverride column="type" javaType="Integer" />
+        <columnOverride column="status" javaType="Integer" />
+        </table>
+        
+		<table  tableName="sys_sms_code" > 
+		
+         </table>
+         
+		<table  tableName="jw_notice" > 
+        <columnOverride column="type" javaType="Integer" />
+        </table>
+        
+        
+        
+		
+		<table  tableName="jw_meeting_room_xy" > 
+        </table>
+        
+        <table  tableName="sys_user" > 
+        <columnOverride column="is_useable" javaType="Integer" />
+        <columnOverride column="is_online" javaType="Integer" />
+        </table>
+        
+        
+        
+		<table  tableName="jw_invitation_participant" > 
+        </table>
+        
+        <table  tableName="jw_meeting_invitation" > 
+        </table>
+        
+        <table  tableName="jw_meeting_participant" > 
+        </table>
+        
+        
+		
+        <table  tableName="jw_alert" >
+        	<columnOverride column="type" javaType="Integer" />
+        	<columnOverride column="status" javaType="Integer" />
+        	<columnOverride column="imgs" jdbcType="VARCHAR" />
+        	<columnOverride column="voices" jdbcType="VARCHAR" />
+        	<columnOverride column="videos" jdbcType="VARCHAR" />
+        </table> 
+        
+        <table  tableName="sys_user" > 
+        <columnOverride column="is_useable" javaType="Integer" />
+        </table>
+        
+        <table  tableName="jw_comment" > 
+        	<columnOverride column="type" javaType="Integer" />
+        </table>
+        
+        <table  tableName="jw_content" > 
+        	<columnOverride column="status" javaType="Integer" />
+        	<columnOverride column="type" javaType="Integer" />
+        	<columnOverride column="code" javaType="Integer" />
+        </table>
+        
+        <table  tableName="jw_electricity" > 
+        
+        </table>
+         
+        <table  tableName="jw_entity" > 
+        <columnOverride column="type" javaType="Integer" />
+        </table>
+         
+        <table  tableName="jw_meeting_room" > 
+        <columnOverride column="type" javaType="Integer" />
+        </table>
+         
+        
+         
+        <table  tableName="jw_question" > 
+        <columnOverride column="question_type" javaType="Integer" />
+        <columnOverride column="sub_type" javaType="Integer" />
+        </table>
+         
+        <table  tableName="jw_water" > 
+        
+        </table>
+         
+        
+         
+        <table  tableName="sys_area" > 
+        <columnOverride column="is_leaf" javaType="Integer" />
+        </table>
+        
+        
+         
+        <table  tableName="sys_button" > 
+        
+        </table>
+         
+        <table  tableName="sys_content" > 
+        
+        </table>
+         
+        <table  tableName="sys_data_template" > 
+        <columnOverride column="template_type" javaType="Integer" />
+        </table>
+         
+         
+        <table  tableName="sys_dict" > 
+        
+        </table>
+        
+        <table  tableName="sys_jobs" > 
+        
+        </table>
+         
+        <table  tableName="sys_logs" > 
+        
+        </table>
+         
+        <table  tableName="sys_menu" > 
+        
+        </table>
+         
+        <table  tableName="sys_menu_dept" > 
+        
+        </table>
+         
+        <table  tableName="sys_menu_subject" > 
+        
+        </table>
+         
+        <table  tableName="sys_message" > 
+        <columnOverride column="type" javaType="Integer" />
+        <columnOverride column="status" javaType="Integer" />
+        <columnOverride column="open" javaType="Integer" />
+        </table>
+         
+        <table  tableName="sys_model" > 
+        
+        </table>
+         
+        <table  tableName="sys_model_field" > 
+        
+        </table>
+         
+        <table  tableName="sys_question_record" > 
+        <columnOverride column="question_type" javaType="Integer" />
+        <columnOverride column="sub_type" javaType="Integer" />
+        </table>
+         
+        <table  tableName="sys_role" > 
+        
+        </table>
+        
+        <table  tableName="sys_subject" > 
+        <columnOverride column="is_leaf" javaType="Integer" />
+        <columnOverride column="is_comment" javaType="Integer" />
+        <columnOverride column="is_audit" javaType="Integer" />
+        <columnOverride column="is_useable" javaType="Integer" />
+        </table>
+         
+        
+         
+        <table  tableName="sys_vcode" > 
+        <columnOverride column="status" javaType="Integer" />
+        <columnOverride column="type" javaType="Integer" />
+        </table>
+         
+        <table  tableName="t_content_customs" > 
+        
+        </table>
+         
+        <table  tableName="t_content_text" > 
+        
+        </table>
+         
+        <table  tableName="t_notice_user" > 
+        
+        </table>
+         
+        <table  tableName="t_role_button" > 
+        
+        </table>
+         
+        <table  tableName="t_role_jobs" > 
+        
+        </table>
+         
+        <table  tableName="t_role_menu" > 
+        
+        </table>
+         
+        <table  tableName="t_role_menudept" > 
+        
+        </table>
+         
+        <table  tableName="t_role_menusubject" > 
+        
+        </table>
+         
+        <table  tableName="t_role_user" > 
+        
+        </table>
+       -->
+          
+    </context>
+</generatorConfiguration>

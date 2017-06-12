@@ -1,0 +1,452 @@
+package com.huaao.ejwplatform.service;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+
+import com.huaao.ejwplatform.common.Constants;
+import com.huaao.ejwplatform.common.util.DateTool;
+import com.huaao.ejwplatform.dao.JwAlert;
+import com.huaao.ejwplatform.dao.JwContent;
+import com.huaao.ejwplatform.dao.JwContentDept;
+import com.huaao.ejwplatform.dao.JwContentDeptExample;
+import com.huaao.ejwplatform.dao.JwCriminalRecord;
+import com.huaao.ejwplatform.dao.SysAuditRecordExample;
+import com.huaao.ejwplatform.dao.SysAuditRecordWithBLOBs;
+import com.huaao.ejwplatform.dao.SysDict;
+import com.huaao.ejwplatform.dao.SysJobs;
+import com.huaao.ejwplatform.dao.SysMessage;
+import com.huaao.ejwplatform.dao.SysUser;
+import com.huaao.ejwplatform.mapper.JwContentDeptMapper;
+import com.huaao.ejwplatform.mapper.JwContentMapper;
+import com.huaao.ejwplatform.mapper.JwCriminalRecordMapper;
+import com.huaao.ejwplatform.mapper.SysAuditRecordMapper;
+import com.huaao.ejwplatform.mapper.SysMessageMapper;
+import com.huaao.ejwplatform.mapper.SysUserMapper;
+import com.huaao.ejwplatform.service.model.AbstractJsonModel;
+import com.huaao.ejwplatform.service.model.AlertInfo;
+import com.huaao.ejwplatform.service.model.AlertInfoHelper;
+import com.huaao.ejwplatform.service.model.CommonDict;
+import com.huaao.ejwplatform.service.model.ContentInfo;
+import com.huaao.ejwplatform.service.model.CriminalRecordInfo;
+import com.huaao.ejwplatform.service.model.CustomNotice;
+import com.huaao.ejwplatform.service.model.MeetingInvitationInfo;
+import com.huaao.ejwplatform.service.model.MsgInfo;
+import com.huaao.ejwplatform.service.model.MsgInfoHelper;
+import com.huaao.ejwplatform.service.model.NewPushMessage;
+import com.huaao.ejwplatform.service.model.PushMessage;
+import com.huaao.ejwplatform.service.model.PushMessageType;
+import com.huaao.ejwplatform.service.system.DeptService;
+import com.huaao.ejwplatform.service.system.DictService;
+import com.huaao.ejwplatform.service.system.JobsService;
+import com.huaao.ejwplatform.service.websocket.SocketIoService;
+
+@Service
+public class PushService {
+	
+	@Autowired
+	private UserService userService;
+	@Autowired
+	private SysUserMapper sysUserMapper ;
+	@Autowired
+	private SysAuditRecordMapper recordMapper;
+	
+	@Autowired
+	private JwContentMapper jwContentMapper;
+	
+	@Autowired
+	private JwContentDeptMapper jwContentDeptMapper;
+	
+	@Autowired
+	private DeptService deptService;
+	
+	@Value("${contentPath}")
+	private String contentPath;
+	
+	@Autowired
+	private JwCriminalRecordMapper jwRecordMapper;
+	
+	@Autowired
+	private SysMessageMapper sysMessageMapper;
+	
+	@Autowired
+	private JobsService jobsService;
+
+	@Autowired
+	private CriminalService criminalService;
+	
+	@Autowired
+	private DictService dictService;
+	
+	@Autowired
+	private SocketIoService socketService;
+	
+	@Autowired
+	private StringRedisTemplate stringRedisTemplate;
+	/**
+	 * for MessageService
+	 * @param pushMessageType
+	 * @param msg
+	 * @param fui
+	 * @param isReply
+	 * @return
+	 */
+	public NewPushMessage createMessage(String messageId){
+		NewPushMessage newMsg = new NewPushMessage();
+		String[] temp = new String[2];
+		
+		SysMessage msg = sysMessageMapper.selectByPrimaryKey(messageId);
+		SysUser user = userService.getUserById(msg.getUserId());
+		MsgInfo msgInfo = null;
+		PushMessage pMsg = null;
+		List<String> uids = null;
+		if (msg.getType() == 3) {
+			temp[0] = Constants.template_find_police_consultation[0];
+			temp[1] = DateTool.formatDateChinese(Calendar.getInstance().getTime())
+					+ user.getRealname()
+					+ Constants.template_find_police_consultation[1];
+			msgInfo = MsgInfoHelper.convert(msg, null, user);
+			msgInfo.classifyName="5";
+			msgInfo.classifyName="其他";
+			pMsg = PushMessageType.FindPolice.create(msgInfo);
+			uids = new ArrayList<>();
+			uids.add(msg.getReplyUserId());
+		} else {
+			temp = Constants.template_consultation;
+			String superiorId = userService.getSuperiorDeptIdByUid(user.getDeptId());
+			Map<String, Object> params = new HashMap<String, Object>();
+			params.put("deptId", superiorId);
+			uids = sysUserMapper.selectUidsByExample(params);
+			msgInfo = MsgInfoHelper.convert(msg, null, user);
+			msgInfo.classifyName="5";
+			msgInfo.classifyName="其他";
+			pMsg = PushMessageType.Consultation.create(msgInfo);
+		}
+		newMsg.setMessage(pMsg);
+		newMsg.setTitle(temp[0]);
+		newMsg.setText(temp[1]);
+		newMsg.setUids(uids);
+		newMsg.setId(messageId);
+		
+		return newMsg;
+	}
+	
+	/**
+	 * 通用消息推送
+	 * @param uids 接收人的用户ID
+	 * @param pushMessageType ， 推送类型
+	 * @param title 标题
+	 * @param text 内容
+	 * @param relatedId 相关业务表ID
+	 * @param obj 推送的对象信息
+	 * @return
+	 */
+	public NewPushMessage createCommonMessage(List<String> uids,PushMessageType pushMessageType,String title, String text,String relatedId, AbstractJsonModel obj){
+		NewPushMessage msg = new NewPushMessage();
+		if(obj == null){
+			obj = new ContentInfo("","","");
+		}
+		PushMessage message = pushMessageType.create(obj);
+		msg.setMessage(message);
+		msg.setText(text);
+		msg.setTitle(title);
+		msg.setUids(uids);
+		msg.setId(relatedId);
+		return msg;
+	}
+	
+	public NewPushMessage createReplyMessage(String msgId){
+		NewPushMessage newMsg = new NewPushMessage();
+		List<String> uids = new ArrayList<String>();
+		
+		SysMessage msg = sysMessageMapper.selectByPrimaryKey(msgId);
+		SysUser user = userService.getUserById(msg.getUserId());
+		uids.add(msg.getUserId());
+		
+		SysUser replyUser = userService.getUserById(msg.getReplyUserId());
+		
+		final MsgInfo msgInfo = MsgInfoHelper.convert(msg, replyUser, user);
+		SysDict parentDict = dictService.findByCode("counselingClassifyDict");
+		List<SysDict> dicts = dictService.findByParent(parentDict.getId());
+		PushMessage pMsg = null;
+		String[] temp = new String[2];
+		for (SysDict item : dicts)
+			if (StringUtils.equals(item.getCode(), msg.getClassify().toString())){
+				msgInfo.classifyName=item.getName();
+			}
+		if(msg.getType() ==  1){
+			pMsg = PushMessageType.Consultation.create(msgInfo);
+			temp = Constants.template_reply;
+		}else if(msg.getType() ==  3){
+			//显示回复的职务+姓名
+			SysJobs jobs = jobsService.selectJobById(replyUser.getJobsId());
+			pMsg = PushMessageType.FindPolice.create(msgInfo);
+			temp[0] = Constants.template_police_reply[0];
+			temp[1] = jobs.getName()+replyUser.getRealname()+Constants.template_police_reply[1];
+		}else{
+			pMsg = PushMessageType.Mail.create(msgInfo);
+			temp = Constants.template_rlymail;
+		}
+		newMsg.setMessage(pMsg);
+		newMsg.setTitle(temp[0]);
+		newMsg.setText(temp[1]);
+		newMsg.setUids(uids);
+		newMsg.setId(msgId);
+		
+		return newMsg;
+		
+	}
+	
+	public NewPushMessage createPushMessage(PushMessageType pushMessageType, JwAlert alert, SysUser fui, String target){
+		NewPushMessage msg = new NewPushMessage();
+		
+		List<String> users = new ArrayList<String>();
+
+		
+		final AlertInfo alertInfo = AlertInfoHelper.convertCitizenAlert(alert, null,fui);
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy年MM月dd日HH时mm分ss秒");
+		Date lcc_time = alert.getCreateTime();
+		String re_StrTime = sdf.format(lcc_time);
+		String title = "";
+		String text = "";
+		
+		if(alert.getStatus() == 1 || alert.getStatus() == 6){
+			users.add(fui.getId());
+			switch(alert.getType()){
+				case 1: 
+					title = Constants.template_relieve[0]; 
+					text = Constants.template_relieve[1]; 
+					break;
+				case 2: 
+					title = Constants.template_notereply[0]; 
+					text = Constants.template_notereply[1];
+					break;
+				case 3: 
+					title = Constants.template_reliphone[0];
+					text = Constants.template_reliphone[1];  
+					break;
+				default:
+					title = Constants.template_solve[0];
+					text = Constants.template_solve[1];  
+		    }
+		}else if(alert.getStatus() == 2){
+			title = Constants.template_delegate[0];
+			text = "\""+fui.getRealname()+"\""+Constants.template_delegate[1];
+			users.add(target);
+		}else{
+			// 根据上级单位获取人员个推列表
+			if (target != null) {
+				users.add(target);
+			}
+			//委派给负责处理警情的派出所
+			String deptId = alert.getAlertDeptId();
+			List<String> userIds = deptService.queryManageUserIdsByDeptId(deptId);
+			if (userIds != null && !userIds.isEmpty()) {
+				users.addAll(userIds);
+				for(String item : userIds){
+					stringRedisTemplate.boundSetOps(CommonDict.REDIS_ALERT_NEWS).add(alert.getId()+","+item);
+				}
+				socketService.sendAlertMsg(userIds, alert.getId());
+			}
+			String[] temp = null;
+			if (alert.getType() == 1 || alert.getType() == 4 ) {
+				temp = Constants.template_report;
+				text = re_StrTime + fui.getRealname() + temp[1];
+			} else if (alert.getType() == 2) {
+				temp = Constants.template_note;
+				text = re_StrTime + fui.getRealname() + temp[1];
+			} else {
+				temp = Constants.template_phone;
+				text = re_StrTime + fui.getRealname() + temp[1];
+			}
+			title =  temp[0];
+		}
+		if (users == null || users.size() == 0) {
+			return null;
+		}
+		
+		PushMessage pushMsg = pushMessageType.create(alertInfo);
+        msg.setTitle(title);
+        msg.setText(text);
+        msg.setMessage(pushMsg);
+        msg.setUids(users);
+        msg.setId(alert.getId());
+
+		return msg;
+	}
+	
+	public NewPushMessage createPushMessage(String contentId, String createrId){
+		NewPushMessage msg = new NewPushMessage();
+		
+		JwContent jwContent = jwContentMapper.selectByPrimaryKey(contentId);
+		JwContentDeptExample example = new JwContentDeptExample();
+		example.createCriteria().andContentIdEqualTo(contentId);
+		List<JwContentDept> depts = jwContentDeptMapper.selectByExample(example);
+		
+		PushMessageType pushType = null;
+		String title = null;
+		String text = null;
+		//i学习
+		if (jwContent.getType() == 8) {
+			pushType = PushMessageType.iPolicy;
+			title = Constants.template_ZhengCheXueXi[0];
+			text = Constants.template_ZhengCheXueXi[1];
+		} else {
+			pushType = PushMessageType.Custom;
+			title = Constants.template_XiaoXiTongZhi[0];
+			text = Constants.template_XiaoXiTongZhi[1];
+		}
+		List<String> uids = new ArrayList<String>();
+		for(JwContentDept dept : depts){
+			if(jwContent.getType().intValue() == 8){
+				uids.addAll(deptService.queryManageUserIdsByDeptId(dept.getDeptId()));
+			}else{
+				uids.addAll(deptService.queryManageUserIds(dept.getDeptId()));
+			}
+		}
+		if(uids.size() == 0){
+			jwContent.setMsgStatus(0);
+			jwContentMapper.updateMsgStatusByPrimaryKey(jwContent);
+			return msg;
+		}
+		
+		String updaterDeptName = jwContentMapper.selectUpdaterDeptNameByUpdaterId(jwContent.getUpdaterId());
+		final CustomNotice contentInfo = new CustomNotice(contentId,title,jwContent.getUpdateTime(),jwContent.getType().intValue(),this.contentPath+contentId,updaterDeptName);
+ 
+ 
+		PushMessage message = null;
+		//i学习
+		if (jwContent.getType() == 8) {
+			message = PushMessageType.iPolicy.create(contentInfo);
+		} else {
+			message = PushMessageType.Custom.create(contentInfo);
+		}
+		 
+ 
+		//just set as success beacuse ios use async thread
+		jwContent.setMsgStatus(1);
+		jwContentMapper.updateMsgStatusByPrimaryKey(jwContent);
+		
+		msg.setTitle(title);
+		msg.setText(text);
+		msg.setMessage(message);
+		msg.setUids(uids);
+		msg.setId(contentId);
+		
+		return msg;
+	}
+	
+	public NewPushMessage createPushMessage(PushMessageType messageType, MeetingInvitationInfo info, List<String> uids){
+		NewPushMessage msg = new NewPushMessage();
+		PushMessage message = messageType.create(info);
+		msg.setTitle(Constants.template_meetingroom[0]);
+		msg.setText(Constants.template_meetingroom[1]);
+		msg.setMessage(message);
+		msg.setUids(uids);
+		msg.setId(info.getId());
+		return msg;
+	}
+	
+	public NewPushMessage createAuthMessage(String auth, SysUser user){
+		NewPushMessage msg = new NewPushMessage();
+		String[] temp = null; 
+		if("authed".equals(auth)){
+			temp = Constants.template_audipass;
+		}else if("authFail".equals(auth)){
+			temp = Constants.template_audireject;
+		}
+		String title = temp[0];
+		String text = temp[1];
+		
+		final ContentInfo contentInfo = new ContentInfo("","","");
+		PushMessage message = PushMessageType.Audit.create(contentInfo);
+		List<String> uids = new ArrayList<>();
+		uids.add(user.getId());
+		
+		msg.setMessage(message);
+		msg.setText(text);
+		msg.setTitle(title);
+		msg.setUids(uids);
+		msg.setId(user.getId());
+		return msg;
+	}
+	
+	public NewPushMessage createApplyPushMessage(String recordId) {
+		NewPushMessage msg = new NewPushMessage();
+		
+		JwCriminalRecord record = jwRecordMapper.selectByPrimaryKey(recordId);
+		String title = "";
+		String text = "";
+		if(record.getAuthStatus()!=null && record.getAuthStatus()==7 && record.getHasRecord()!=null && record.getHasRecord()==2){
+			//有犯罪记录
+			record.setAuthStatus(CommonDict.AUDIT_STATUS_CRIMINAL_CONFIRMING);
+		}
+		switch(record.getAuthStatus()){
+		    case 1:
+		    	title = Constants.template_crircd_shouli[0];
+		    	text = Constants.template_crircd_shouli[1];
+		    	break;
+		    case 2:
+		    	title = Constants.template_crircd_pass[0];
+		    	text = Constants.template_crircd_pass[1];
+		    	break;
+		    case 3:
+		    	title = Constants.template_crircd_daiziqu[0];
+		    	text = Constants.template_crircd_daiziqu[1];
+		    	break;
+		    case 4:
+		    	title = Constants.WORK_ITEMS[0];
+		    	text = Constants.WORK_ITEMS[1]+"已收件，正在配送中";
+		    	break;
+		    case 5:
+		    	title = Constants.template_crircd_unpass[0];
+		    	text = Constants.template_crircd_unpass[1];
+		    	break;
+		    case 6:
+		    	title = Constants.WORK_ITEMS[0];
+				text = Constants.WORK_ITEMS[1]+"已签收，签收人:"+record.getReceiverName();
+		    	break;
+		    case 7:
+		    	title = Constants.WORK_ITEMS[0];
+				text = Constants.WORK_ITEMS[1]+"已领取，领取人:"+record.getReceiverName();
+		    	break;
+		    case 8:
+		    	title = Constants.WORK_ITEMS[0];
+				text = Constants.WORK_ITEMS[1]+"已失效";
+		    	break;
+		    default:
+		    	break;
+		}
+		
+		CriminalRecordInfo recordInfo = criminalService.getCriminalRecordInfo(record);
+		PushMessage message = PushMessageType.Apply.create(recordInfo);
+		
+		List<String> uids = new ArrayList<String>();
+		uids.add(record.getUserId());
+		msg.setMessage(message);
+		msg.setText(text);
+		msg.setTitle(title);
+		msg.setUids(uids);
+		msg.setId(recordId);
+		return msg;
+	}
+	/**
+	 * 推送待办事宜统计
+	 * @param fui
+	 * @param message
+	 */
+	public void pushToDoMessage(String uid, String message) {
+		socketService.sendToDoCount(uid, message);
+	}
+	
+}

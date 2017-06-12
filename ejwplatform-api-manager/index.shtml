@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+     <!--# include file="static/include.shtml" -->
+     
+     <script type="text/javascript">
+     $(function($){
+    	 $(".nav-list li").click(function(){
+    		 if($(this).attr("url").indexOf('http') > -1 ){
+    			 window.open($(this).attr("url"),"_blank");
+    		 }else{
+    			 $("#myiframe").attr("src",$(this).attr("url"));  
+        		 $(this).siblings().removeClass("active");
+        		 $(this).addClass("active"); 
+    		 }
+    	 });
+     });
+     </script>
+  </head> 
+  <body>
+  <div class="navbar navbar-default" id="navbar">
+		<script type="text/javascript">
+			try{ace.settings.check('navbar' , 'fixed')}catch(e){}
+		</script>
+
+		<div class="navbar-container" id="navbar-container">
+			<div class="navbar-header pull-left">
+				<a class="navbar-brand">
+					<small> <i class="icon-leaf"></i> 接口系统支撑平台 </small>
+				</a> 
+			</div> 
+		</div> 
+	</div>
+  	 
+	<div class="main-container" id="main-container">
+		<script type="text/javascript">
+			try{ace.settings.check('main-container' , 'fixed')}catch(e){}
+		</script>
+		
+		<div class="sidebar" id="sidebar">
+			<script type="text/javascript">
+				try{ace.settings.check('sidebar' , 'fixed')}catch(e){}
+			</script>
+			<ul class="nav nav-list">
+				<li class="li active" url="logquery.shtml">
+					<a href="#" >
+						<i class="icon-dashboard"></i>
+						<span class="menu-text">日志查询</span>
+					</a>
+				</li>
+				<li class="li " url="apitest.shtml">
+					<a href="#" >
+						<i class="icon-dashboard"></i>
+						<span class="menu-text">接口测试</span>
+					</a>
+				</li>
+				<li class="li " url="http://192.168.7.102:8080/">
+					<a href="#" >
+						<i class="icon-dashboard" ></i>
+						<span class="menu-text">自动化部署</span>
+					</a>
+				</li>
+				<li class="li " url="http://192.168.7.102/showdoc-master/index.php?s=/1&page_id=559">
+					<a href="#" >
+						<i class="icon-dashboard" ></i>
+						<span class="menu-text">接口文档</span>
+					</a>
+				</li>
+	 		</ul>
+ 		</div>
+ 		
+ 		<div class="main-content" style="padding-left: 10px;">
+			<iframe id="myiframe" name="myiframe" width="100%"   onload="this.height=myiframe.document.body.scrollHeight" frameborder="0" src="logquery.shtml"></iframe>
+ 		</div>
+	</div>
+  </body>
+</html>    
+    
+    
+    
+    
+    
+    

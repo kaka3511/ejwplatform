@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.huaao.ejwplatform.mapper.JwQuestionMapper" >
+  <resultMap id="BaseResultMap" type="com.huaao.ejwplatform.dao.JwQuestion" >
+    <id column="id" property="id" jdbcType="VARCHAR" />
+    <result column="question_type" property="questionType" jdbcType="TINYINT" />
+    <result column="sub_type" property="subType" jdbcType="TINYINT" />
+    <result column="question" property="question" jdbcType="VARCHAR" />
+    <result column="option0" property="option0" jdbcType="VARCHAR" />
+    <result column="score0" property="score0" jdbcType="INTEGER" />
+    <result column="option1" property="option1" jdbcType="VARCHAR" />
+    <result column="score1" property="score1" jdbcType="INTEGER" />
+    <result column="option2" property="option2" jdbcType="VARCHAR" />
+    <result column="score2" property="score2" jdbcType="INTEGER" />
+    <result column="option3" property="option3" jdbcType="VARCHAR" />
+    <result column="score3" property="score3" jdbcType="INTEGER" />
+    <result column="option4" property="option4" jdbcType="VARCHAR" />
+    <result column="score4" property="score4" jdbcType="INTEGER" />
+    <result column="option5" property="option5" jdbcType="VARCHAR" />
+    <result column="score5" property="score5" jdbcType="INTEGER" />
+    <result column="answer" property="answer" jdbcType="VARCHAR" />
+    <result column="creator_id" property="creatorId" jdbcType="VARCHAR" />
+    <result column="create_time" property="createTime" jdbcType="TIMESTAMP" />
+    <result column="updater_id" property="updaterId" jdbcType="VARCHAR" />
+    <result column="update_time" property="updateTime" jdbcType="TIMESTAMP" />
+  </resultMap>
+  <sql id="Example_Where_Clause" >
+    <where >
+      <foreach collection="oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Update_By_Example_Where_Clause" >
+    <where >
+      <foreach collection="example.oredCriteria" item="criteria" separator="or" >
+        <if test="criteria.valid" >
+          <trim prefix="(" suffix=")" prefixOverrides="and" >
+            <foreach collection="criteria.criteria" item="criterion" >
+              <choose >
+                <when test="criterion.noValue" >
+                  and ${criterion.condition}
+                </when>
+                <when test="criterion.singleValue" >
+                  and ${criterion.condition} #{criterion.value}
+                </when>
+                <when test="criterion.betweenValue" >
+                  and ${criterion.condition} #{criterion.value} and #{criterion.secondValue}
+                </when>
+                <when test="criterion.listValue" >
+                  and ${criterion.condition}
+                  <foreach collection="criterion.value" item="listItem" open="(" close=")" separator="," >
+                    #{listItem}
+                  </foreach>
+                </when>
+              </choose>
+            </foreach>
+          </trim>
+        </if>
+      </foreach>
+    </where>
+  </sql>
+  <sql id="Base_Column_List" >
+    id, question_type, sub_type, question, option0, score0, option1, score1, option2, 
+    score2, option3, score3, option4, score4, option5, score5, answer, creator_id, create_time, 
+    updater_id, update_time
+  </sql>
+  <select id="selectByExample" resultMap="BaseResultMap" parameterType="com.huaao.ejwplatform.dao.JwQuestionExample" >
+    select
+    <if test="distinct" >
+      distinct
+    </if>
+    <include refid="Base_Column_List" />
+    from jw_question
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+    <if test="orderByClause != null" >
+      order by ${orderByClause}
+    </if>
+    <if test="limit != null" >
+      <if test="offset != null" >
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null" >
+        limit ${limit}
+      </if>
+    </if>
+  </select>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.String" >
+    select 
+    <include refid="Base_Column_List" />
+    from jw_question
+    where id = #{id,jdbcType=VARCHAR}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String" >
+    delete from jw_question
+    where id = #{id,jdbcType=VARCHAR}
+  </delete>
+  <delete id="deleteByExample" parameterType="com.huaao.ejwplatform.dao.JwQuestionExample" >
+    delete from jw_question
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </delete>
+  <insert id="insert" parameterType="com.huaao.ejwplatform.dao.JwQuestion" >
+    insert into jw_question (id, question_type, sub_type, 
+      question, option0, score0, 
+      option1, score1, option2, 
+      score2, option3, score3, 
+      option4, score4, option5, 
+      score5, answer, creator_id, 
+      create_time, updater_id, update_time
+      )
+    values (#{id,jdbcType=VARCHAR}, #{questionType,jdbcType=TINYINT}, #{subType,jdbcType=TINYINT}, 
+      #{question,jdbcType=VARCHAR}, #{option0,jdbcType=VARCHAR}, #{score0,jdbcType=INTEGER}, 
+      #{option1,jdbcType=VARCHAR}, #{score1,jdbcType=INTEGER}, #{option2,jdbcType=VARCHAR}, 
+      #{score2,jdbcType=INTEGER}, #{option3,jdbcType=VARCHAR}, #{score3,jdbcType=INTEGER}, 
+      #{option4,jdbcType=VARCHAR}, #{score4,jdbcType=INTEGER}, #{option5,jdbcType=VARCHAR}, 
+      #{score5,jdbcType=INTEGER}, #{answer,jdbcType=VARCHAR}, #{creatorId,jdbcType=VARCHAR}, 
+      #{createTime,jdbcType=TIMESTAMP}, #{updaterId,jdbcType=VARCHAR}, #{updateTime,jdbcType=TIMESTAMP}
+      )
+  </insert>
+  <insert id="insertSelective" parameterType="com.huaao.ejwplatform.dao.JwQuestion" >
+    insert into jw_question
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        id,
+      </if>
+      <if test="questionType != null" >
+        question_type,
+      </if>
+      <if test="subType != null" >
+        sub_type,
+      </if>
+      <if test="question != null" >
+        question,
+      </if>
+      <if test="option0 != null" >
+        option0,
+      </if>
+      <if test="score0 != null" >
+        score0,
+      </if>
+      <if test="option1 != null" >
+        option1,
+      </if>
+      <if test="score1 != null" >
+        score1,
+      </if>
+      <if test="option2 != null" >
+        option2,
+      </if>
+      <if test="score2 != null" >
+        score2,
+      </if>
+      <if test="option3 != null" >
+        option3,
+      </if>
+      <if test="score3 != null" >
+        score3,
+      </if>
+      <if test="option4 != null" >
+        option4,
+      </if>
+      <if test="score4 != null" >
+        score4,
+      </if>
+      <if test="option5 != null" >
+        option5,
+      </if>
+      <if test="score5 != null" >
+        score5,
+      </if>
+      <if test="answer != null" >
+        answer,
+      </if>
+      <if test="creatorId != null" >
+        creator_id,
+      </if>
+      <if test="createTime != null" >
+        create_time,
+      </if>
+      <if test="updaterId != null" >
+        updater_id,
+      </if>
+      <if test="updateTime != null" >
+        update_time,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        #{id,jdbcType=VARCHAR},
+      </if>
+      <if test="questionType != null" >
+        #{questionType,jdbcType=TINYINT},
+      </if>
+      <if test="subType != null" >
+        #{subType,jdbcType=TINYINT},
+      </if>
+      <if test="question != null" >
+        #{question,jdbcType=VARCHAR},
+      </if>
+      <if test="option0 != null" >
+        #{option0,jdbcType=VARCHAR},
+      </if>
+      <if test="score0 != null" >
+        #{score0,jdbcType=INTEGER},
+      </if>
+      <if test="option1 != null" >
+        #{option1,jdbcType=VARCHAR},
+      </if>
+      <if test="score1 != null" >
+        #{score1,jdbcType=INTEGER},
+      </if>
+      <if test="option2 != null" >
+        #{option2,jdbcType=VARCHAR},
+      </if>
+      <if test="score2 != null" >
+        #{score2,jdbcType=INTEGER},
+      </if>
+      <if test="option3 != null" >
+        #{option3,jdbcType=VARCHAR},
+      </if>
+      <if test="score3 != null" >
+        #{score3,jdbcType=INTEGER},
+      </if>
+      <if test="option4 != null" >
+        #{option4,jdbcType=VARCHAR},
+      </if>
+      <if test="score4 != null" >
+        #{score4,jdbcType=INTEGER},
+      </if>
+      <if test="option5 != null" >
+        #{option5,jdbcType=VARCHAR},
+      </if>
+      <if test="score5 != null" >
+        #{score5,jdbcType=INTEGER},
+      </if>
+      <if test="answer != null" >
+        #{answer,jdbcType=VARCHAR},
+      </if>
+      <if test="creatorId != null" >
+        #{creatorId,jdbcType=VARCHAR},
+      </if>
+      <if test="createTime != null" >
+        #{createTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="updaterId != null" >
+        #{updaterId,jdbcType=VARCHAR},
+      </if>
+      <if test="updateTime != null" >
+        #{updateTime,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+  <select id="countByExample" parameterType="com.huaao.ejwplatform.dao.JwQuestionExample" resultType="java.lang.Integer" >
+    select count(*) from jw_question
+    <if test="_parameter != null" >
+      <include refid="Example_Where_Clause" />
+    </if>
+  </select>
+  <update id="updateByExampleSelective" parameterType="map" >
+    update jw_question
+    <set >
+      <if test="record.id != null" >
+        id = #{record.id,jdbcType=VARCHAR},
+      </if>
+      <if test="record.questionType != null" >
+        question_type = #{record.questionType,jdbcType=TINYINT},
+      </if>
+      <if test="record.subType != null" >
+        sub_type = #{record.subType,jdbcType=TINYINT},
+      </if>
+      <if test="record.question != null" >
+        question = #{record.question,jdbcType=VARCHAR},
+      </if>
+      <if test="record.option0 != null" >
+        option0 = #{record.option0,jdbcType=VARCHAR},
+      </if>
+      <if test="record.score0 != null" >
+        score0 = #{record.score0,jdbcType=INTEGER},
+      </if>
+      <if test="record.option1 != null" >
+        option1 = #{record.option1,jdbcType=VARCHAR},
+      </if>
+      <if test="record.score1 != null" >
+        score1 = #{record.score1,jdbcType=INTEGER},
+      </if>
+      <if test="record.option2 != null" >
+        option2 = #{record.option2,jdbcType=VARCHAR},
+      </if>
+      <if test="record.score2 != null" >
+        score2 = #{record.score2,jdbcType=INTEGER},
+      </if>
+      <if test="record.option3 != null" >
+        option3 = #{record.option3,jdbcType=VARCHAR},
+      </if>
+      <if test="record.score3 != null" >
+        score3 = #{record.score3,jdbcType=INTEGER},
+      </if>
+      <if test="record.option4 != null" >
+        option4 = #{record.option4,jdbcType=VARCHAR},
+      </if>
+      <if test="record.score4 != null" >
+        score4 = #{record.score4,jdbcType=INTEGER},
+      </if>
+      <if test="record.option5 != null" >
+        option5 = #{record.option5,jdbcType=VARCHAR},
+      </if>
+      <if test="record.score5 != null" >
+        score5 = #{record.score5,jdbcType=INTEGER},
+      </if>
+      <if test="record.answer != null" >
+        answer = #{record.answer,jdbcType=VARCHAR},
+      </if>
+      <if test="record.creatorId != null" >
+        creator_id = #{record.creatorId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.createTime != null" >
+        create_time = #{record.createTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="record.updaterId != null" >
+        updater_id = #{record.updaterId,jdbcType=VARCHAR},
+      </if>
+      <if test="record.updateTime != null" >
+        update_time = #{record.updateTime,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByExample" parameterType="map" >
+    update jw_question
+    set id = #{record.id,jdbcType=VARCHAR},
+      question_type = #{record.questionType,jdbcType=TINYINT},
+      sub_type = #{record.subType,jdbcType=TINYINT},
+      question = #{record.question,jdbcType=VARCHAR},
+      option0 = #{record.option0,jdbcType=VARCHAR},
+      score0 = #{record.score0,jdbcType=INTEGER},
+      option1 = #{record.option1,jdbcType=VARCHAR},
+      score1 = #{record.score1,jdbcType=INTEGER},
+      option2 = #{record.option2,jdbcType=VARCHAR},
+      score2 = #{record.score2,jdbcType=INTEGER},
+      option3 = #{record.option3,jdbcType=VARCHAR},
+      score3 = #{record.score3,jdbcType=INTEGER},
+      option4 = #{record.option4,jdbcType=VARCHAR},
+      score4 = #{record.score4,jdbcType=INTEGER},
+      option5 = #{record.option5,jdbcType=VARCHAR},
+      score5 = #{record.score5,jdbcType=INTEGER},
+      answer = #{record.answer,jdbcType=VARCHAR},
+      creator_id = #{record.creatorId,jdbcType=VARCHAR},
+      create_time = #{record.createTime,jdbcType=TIMESTAMP},
+      updater_id = #{record.updaterId,jdbcType=VARCHAR},
+      update_time = #{record.updateTime,jdbcType=TIMESTAMP}
+    <if test="_parameter != null" >
+      <include refid="Update_By_Example_Where_Clause" />
+    </if>
+  </update>
+  <update id="updateByPrimaryKeySelective" parameterType="com.huaao.ejwplatform.dao.JwQuestion" >
+    update jw_question
+    <set >
+      <if test="questionType != null" >
+        question_type = #{questionType,jdbcType=TINYINT},
+      </if>
+      <if test="subType != null" >
+        sub_type = #{subType,jdbcType=TINYINT},
+      </if>
+      <if test="question != null" >
+        question = #{question,jdbcType=VARCHAR},
+      </if>
+      <if test="option0 != null" >
+        option0 = #{option0,jdbcType=VARCHAR},
+      </if>
+      <if test="score0 != null" >
+        score0 = #{score0,jdbcType=INTEGER},
+      </if>
+      <if test="option1 != null" >
+        option1 = #{option1,jdbcType=VARCHAR},
+      </if>
+      <if test="score1 != null" >
+        score1 = #{score1,jdbcType=INTEGER},
+      </if>
+      <if test="option2 != null" >
+        option2 = #{option2,jdbcType=VARCHAR},
+      </if>
+      <if test="score2 != null" >
+        score2 = #{score2,jdbcType=INTEGER},
+      </if>
+      <if test="option3 != null" >
+        option3 = #{option3,jdbcType=VARCHAR},
+      </if>
+      <if test="score3 != null" >
+        score3 = #{score3,jdbcType=INTEGER},
+      </if>
+      <if test="option4 != null" >
+        option4 = #{option4,jdbcType=VARCHAR},
+      </if>
+      <if test="score4 != null" >
+        score4 = #{score4,jdbcType=INTEGER},
+      </if>
+      <if test="option5 != null" >
+        option5 = #{option5,jdbcType=VARCHAR},
+      </if>
+      <if test="score5 != null" >
+        score5 = #{score5,jdbcType=INTEGER},
+      </if>
+      <if test="answer != null" >
+        answer = #{answer,jdbcType=VARCHAR},
+      </if>
+      <if test="creatorId != null" >
+        creator_id = #{creatorId,jdbcType=VARCHAR},
+      </if>
+      <if test="createTime != null" >
+        create_time = #{createTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="updaterId != null" >
+        updater_id = #{updaterId,jdbcType=VARCHAR},
+      </if>
+      <if test="updateTime != null" >
+        update_time = #{updateTime,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="com.huaao.ejwplatform.dao.JwQuestion" >
+    update jw_question
+    set question_type = #{questionType,jdbcType=TINYINT},
+      sub_type = #{subType,jdbcType=TINYINT},
+      question = #{question,jdbcType=VARCHAR},
+      option0 = #{option0,jdbcType=VARCHAR},
+      score0 = #{score0,jdbcType=INTEGER},
+      option1 = #{option1,jdbcType=VARCHAR},
+      score1 = #{score1,jdbcType=INTEGER},
+      option2 = #{option2,jdbcType=VARCHAR},
+      score2 = #{score2,jdbcType=INTEGER},
+      option3 = #{option3,jdbcType=VARCHAR},
+      score3 = #{score3,jdbcType=INTEGER},
+      option4 = #{option4,jdbcType=VARCHAR},
+      score4 = #{score4,jdbcType=INTEGER},
+      option5 = #{option5,jdbcType=VARCHAR},
+      score5 = #{score5,jdbcType=INTEGER},
+      answer = #{answer,jdbcType=VARCHAR},
+      creator_id = #{creatorId,jdbcType=VARCHAR},
+      create_time = #{createTime,jdbcType=TIMESTAMP},
+      updater_id = #{updaterId,jdbcType=VARCHAR},
+      update_time = #{updateTime,jdbcType=TIMESTAMP}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+</mapper>

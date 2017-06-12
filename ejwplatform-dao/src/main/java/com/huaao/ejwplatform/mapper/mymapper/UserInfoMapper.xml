@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.huaao.ejwplatform.mapper.mymapper.UserInfoMapper" >
+<resultMap id="userResultMap" type="com.huaao.ejwplatform.dao.UserDto" >
+  <id column="id" property="id" jdbcType="VARCHAR" />
+  <result column="jobsName" property="jobsName" jdbcType="VARCHAR" />
+  <result column="dept_id" property="deptId" jdbcType="VARCHAR" />
+  <result column="jobs_id" property="jobsId" jdbcType="VARCHAR" />
+  <result column="utype" property="type" jdbcType="VARCHAR" />
+  <result column="email" property="email" jdbcType="VARCHAR" />
+  <result column="phone" property="phone" jdbcType="VARCHAR" />
+  <result column="phone" property="cellphone" jdbcType="VARCHAR" />
+  <result column="realname" property="realname" jdbcType="VARCHAR" />
+  <result column="user_name" property="userName" jdbcType="VARCHAR" />
+  <result column="sex" property="sex" jdbcType="TINYINT" />
+  <result column="img" property="img" jdbcType="VARCHAR" />
+  <result column="curr_address" property="currAddress" jdbcType="VARCHAR" />
+  <result column="address" property="address" jdbcType="VARCHAR" />
+  <result column="live_now" property="liveNow" jdbcType="VARCHAR" />
+  <result column="policeman_code" property="policemanCode" jdbcType="VARCHAR" />
+  <result column="id_card" property="idCard" jdbcType="VARCHAR" />
+  <result column="idcard_img1" property="idcardImg1" jdbcType="VARCHAR" />
+  <result column="idcard_img2" property="idcardImg2" jdbcType="VARCHAR" />
+  <result column="idcard_img1" property="idcardImage1" jdbcType="VARCHAR" />
+  <result column="idcard_img2" property="idcardImage2" jdbcType="VARCHAR" />
+  <result column="auth" property="auth" jdbcType="VARCHAR"/>
+  <result column="authing_time" property="authingTime" jdbcType="TIMESTAMP"/>
+  <association property="deptInfo" resultMap="deptResultMap"/>  
+  <association property="areaInfo" resultMap="areaResultMap"/>  
+</resultMap>
+<resultMap id="deptResultMap" type="com.huaao.ejwplatform.dao.SysDept" >
+  <id column="did" property="id" jdbcType="VARCHAR" />
+  <result column="dname" property="name" jdbcType="VARCHAR" />
+  <result column="daddress" property="address" jdbcType="VARCHAR" />
+  <result column="email" property="email" jdbcType="VARCHAR" />
+  <result column="phone" property="phone" jdbcType="VARCHAR" />
+  <result column="location" property="location" jdbcType="VARCHAR" />
+  <result column="dtype" property="type" jdbcType="VARCHAR" />
+  <result column="area_id" property="areaId" jdbcType="VARCHAR" />
+  <result column="dcode" property="code" jdbcType="VARCHAR" />
+  <result column="link_dept_id" property="linkDeptId" jdbcType="VARCHAR" />
+</resultMap>
+<resultMap id="areaResultMap" type="com.huaao.ejwplatform.dao.SysArea" >
+  <id column="aid" property="id" jdbcType="VARCHAR" />
+  <result column="aname" property="name" jdbcType="VARCHAR" />
+  <result column="acode" property="code" jdbcType="VARCHAR" />
+  <result column="atype" property="type" jdbcType="VARCHAR" />
+</resultMap>
+<sql id="User_Column_List" >
+  u.dept_id, u.jobs_id, u.type as utype, u.email, u.phone, u.realname, u.user_name, u.sex, u.img, 
+  u.curr_address, u.address, u.live_now, u.policeman_code, u.id_card, u.idcard_img1, u.idcard_img2
+</sql>
+<sql id="Dept_Column_List" >
+  d.id as did, d.name as dname, d.address as daddress, d.email, d.phone, d.location, d.type as dtype, 
+  d.area_id, d.code as dcode, d.link_dept_id
+</sql>
+<sql id="Area_Column_List" >
+  a.id as aid, a.name as aname, a.code as acode, a.type as atype
+</sql>
+<select id="countUserAuditList" parameterType="map" resultType="java.lang.Integer" >
+   select count(1)
+    from sys_user_audit u inner join sys_user s on u.user_id = s.id and u.version = s.version
+    inner join sys_dept d on u.dept_id = d.id 
+    where s.auth = 'authing' 
+    <if test="deptCode != null" >
+      and d.code like CONCAT(#{deptCode},'%' )
+    </if>
+    <if test="realname != null" >
+      and u.realname like CONCAT('%',#{realname},'%' )
+    </if>
+    <if test="phone != null" >
+      and u.phone like CONCAT('%',#{phone},'%' )
+    </if>
+</select>
+<select id="getUserAuditList" parameterType="map" resultMap="userResultMap" >
+   select s.id, (select name from sys_jobs where id = u.jobs_id) as jobsName, s.authing_time, s.auth,
+    <include refid="User_Column_List" />,
+    <include refid="Dept_Column_List" />,
+    <include refid="Area_Column_List" />
+    from sys_user_audit u inner join sys_user s on u.user_id = s.id and u.version = s.version
+    inner join sys_dept d on u.dept_id = d.id 
+    left join sys_area a on d.area_id = a.id
+    where s.auth = 'authing' 
+    <if test="deptCode != null" >
+      and d.code like CONCAT(#{deptCode},'%' )
+    </if>
+    <if test="realname != null" >
+      and u.realname like CONCAT('%',#{realname},'%' )
+    </if>
+    <if test="phone != null" >
+      and u.phone like CONCAT('%',#{phone},'%' )
+    </if>
+    <if test="orderByClause != null" >
+      order by s.${orderByClause}
+    </if>
+    <if test="limit != null" >
+      <if test="offset != null" >
+        limit ${offset}, ${limit}
+      </if>
+      <if test="offset == null" >
+        limit ${limit}
+      </if>
+    </if>
+</select>
+<!-- 查询派出所或警务室用户列表 -->
+<select id="getPoliceUserList" parameterType="map" resultMap="userResultMap" >
+   select u.id, (select name from sys_jobs where id = u.jobs_id) as jobsName, 
+    <include refid="User_Column_List" />
+    from  sys_user u  
+    where u.auth = 'authed' 
+    <if test="deptId != null" >
+      and u.dept_id = #{deptId}
+    </if>
+    order by realname
+</select>
+</mapper>
