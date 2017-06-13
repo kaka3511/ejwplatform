@@ -85,6 +85,9 @@ public class CriminalRecordController {
 				String printTime = DateTool.dateToString(record.getPrintTime(), "yyyy-MM-dd HH:mm:ss");
 				resp.setMsg(Constants.API_MSG_SDK_RE_PRINT + printTime);
 			}else{
+				if(record.getFinishTime() == null){
+					record.setFinishTime(record.getAuditTime());
+				}
 				resp.setData(record);
 			}
 		}else if(authStatus != 3){

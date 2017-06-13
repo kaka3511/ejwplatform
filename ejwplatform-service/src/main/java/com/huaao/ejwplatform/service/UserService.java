@@ -266,7 +266,7 @@ public class UserService {
 	 * @param authMsg
 	 * @param id
 	 */
-	public void updateAuthStatus(String uid ,String auth,String authMsg, String id){
+	public void updateAuthStatus(String uid ,String auth,String authMsg, String id) throws Exception{
 		SysUser su = sysUserMapper.selectByPrimaryKey(id);
 		SysUser user = new SysUser();
 		if(su.getVersion()!=null &&
@@ -317,7 +317,7 @@ public class UserService {
 	}
 	
 	@Transactional
-	public void auth(SysUserAudit user, SysUser old){
+	public void auth(SysUserAudit user, SysUser old) throws Exception{
 		//更新认证状态
 		SysUser su = new SysUser();
 //		BeanUtils.copyProperties(user, su);

@@ -87,7 +87,7 @@ public class MessageService {
 		
 	}
 	
-	public void addMsg(SysMessage msg) {
+	public void addMsg(SysMessage msg) throws Exception{
 		Date date = new Date();
 		msg.setId(UUID.randomUUID().toString().replaceAll("-", ""));
 		msg.setTime(date);
@@ -118,7 +118,7 @@ public class MessageService {
 	 * 回复消息
 	 * @param msg
 	 */
-	public void replyMsg(SysMessage msg) {
+	public void replyMsg(SysMessage msg) throws Exception{
 		msg.setReplyTime(new Date());
 		msg.setUpdateTime(new Date());
 		sysMessageMapper.updateByPrimaryKeySelective(msg);
@@ -140,7 +140,7 @@ public class MessageService {
 		}
 	}
 
-	public void delMsgById(String id) {
+	public void delMsgById(String id) throws Exception{
 		SysMessage msg=sysMessageMapper.selectByPrimaryKey(id);
 		sysMessageMapper.deleteByPrimaryKey(id);
 		//添加待办事宜统计推送
@@ -160,7 +160,7 @@ public class MessageService {
 		}
 	}
 	
-	public void updateMsg(SysMessage msg) {
+	public void updateMsg(SysMessage msg) throws Exception{
 		msg.setUpdateTime(new Date());
 		sysMessageMapper.updateByPrimaryKeySelective(msg);
 		msg=sysMessageMapper.selectByPrimaryKey(msg.getId());

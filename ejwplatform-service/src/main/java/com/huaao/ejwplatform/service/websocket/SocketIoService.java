@@ -93,21 +93,6 @@ public class SocketIoService {
             }
         });
         
-        
-        //监听待办事宜事件
-        server.addEventListener("newToDo", String.class, new DataListener<String>(){
-            @Override
-            public void onData(SocketIOClient client, String data, AckRequest ackRequest) throws ClassNotFoundException {
-                log.info("receive token "+data+" from client "+client.getSessionId());
-                String uid = userService.getUidByToken(data);
-        		if(!clientsMap.containsKey(uid)){
-        			clientsMap.put(uid, new ArrayList<SocketIOClient>());
-        		}
-        		clientsMap.get(uid).add(client);
-        		client.sendEvent(SOCKET_MSG_TODO);
-            }
-        });
-        
         /**
         //监听通知事件
         server.addEventListener("notice_info", String.class, new DataListener<String>() {
@@ -184,6 +169,7 @@ public class SocketIoService {
             	if(clientsMap.get(uid) != null){
             		for(SocketIOClient client: clientsMap.get(uid)){
                     	if(client != null){
+                    		log.info("uid="+uid+",eventType="+eventType+",message="+message+",client="+client);
                             client.sendEvent(eventType, message);
                         }
                     }

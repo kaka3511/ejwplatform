@@ -1,14 +1,15 @@
 package com.huaao.ejwplatform.service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.huaao.ejwplatform.common.Page;
 import com.huaao.ejwplatform.dao.JwAlert;
+import com.huaao.ejwplatform.dao.JwCriminalRecord;
 import com.huaao.ejwplatform.dao.SysDeptWithBLOBs;
 import com.huaao.ejwplatform.dao.SysMessageExampleExt;
 import com.huaao.ejwplatform.service.system.DeptService;
@@ -30,7 +31,7 @@ public class ToDoService {
 	@Autowired
 	private CriminalService criminalService;
 
-	public Integer queryToDoListNum(String uid) {
+	public Integer queryToDoListNum(String uid) throws Exception{
 		Integer count = 0;
 		try {
 			// 警情
@@ -56,9 +57,14 @@ public class ToDoService {
 			Integer auditCount = userService.queryUserAuditCount(map);
 			// 网上办事
 			Page pages = new Page(1, 1000);
-			Integer criminaNum = criminalService.selectCriminalList(pages, "create_time desc", null, null, "0", uid, null).size();
+			Integer criminaNum = 0;
+			List<JwCriminalRecord> listJcr = criminalService.selectCriminalList(pages, "create_time desc", null, null, "0", uid, null);
+			if(listJcr != null){
+				criminaNum = listJcr.size();
+			}
 			count = alertSum + messagexxSum + messageSum + auditCount + criminaNum;
 		} catch (Exception e) {
+			throw e;
 		}
 		return count;
 	}

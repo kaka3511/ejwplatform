@@ -127,6 +127,7 @@ public class CriminalService {
 		Date dt = new Date();
 		jcr.setUpdateTime(dt);
 		jcr.setAuditTime(dt);
+		jcr.setFinishTime(dt);
 		jcr.setInvalidTime(DateTool.getDateByAddDays(dt, 7, 1));
         jwCriminalRecordMapper.batchUpdateRecord(Arrays.asList(ids), jcr);
         for(String id : ids){
@@ -177,7 +178,7 @@ public class CriminalService {
 	 * @param jcr
 	 */
 	@Transactional
-	public void addCriminalRecord(JwCriminalRecord jcr) {
+	public void addCriminalRecord(JwCriminalRecord jcr) throws Exception{
 		jwCriminalRecordMapper.insert(jcr);
 		logApply(jcr.getUserId(), jcr.getId(), CriminalAuthStatusEnum.DAI_SHOU_LI, null, jcr.getCreateTime());
 		/*applyRecordService.add(TYPE, jcr.getUserId(), jcr.getId(),

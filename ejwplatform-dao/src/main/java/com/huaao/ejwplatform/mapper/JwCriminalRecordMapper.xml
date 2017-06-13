@@ -722,6 +722,9 @@
       <if test="record.invalidTime != null">
       	invalid_time = #{record.invalidTime,jdbcType=TIMESTAMP},
       </if>
+      <if test="record.finishTime != null">
+      	finish_time = #{record.finishTime,jdbcType=TIMESTAMP},
+      </if>
       <if test="record.policeId != null">
         police_id = #{record.policeId,jdbcType=VARCHAR},
       </if>
